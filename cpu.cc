@@ -45,14 +45,15 @@ void EmulatedCpu::Emulate()
 	auto state = GetCpuState();
 	while(state->cycle < state->cycle_stop) {
 		state->ip &= state->ip_mask;
-		if(state->interrupts >= 3) {
+		uint32_t pending_interrupts = state->pending_interrupts.load(std::memory_order_acquire);
+		if(pending_interrupts + state->interrupts >= 3) {
 			uint32_t type;
-			if(state->interrupts & 4) {
+			if(pending_interrupts & 4) {
 				type = 1;
-				state->interrupts -= 4;
+				state->pending_interrupts.fetch_sub(4);
 			} else {
 				type = 0;
-				state->interrupts -= 2;
+				state->pending_interrupts.fetch_sub(2);
 			}
 			exec->interrupt(exec->interrupt_context, type);
 			continue;

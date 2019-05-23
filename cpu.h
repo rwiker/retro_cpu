@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <atomic>
+
 typedef uint32_t cpuaddr_t;
 
 class EmulatedCpu;
@@ -11,6 +13,8 @@ class EmulatedCpu;
 // State that is common to any CPU
 struct CpuState
 {
+	CpuState() : pending_interrupts(0) {}
+
 	uint64_t *registers;
 	uint32_t reg_size_bytes;
 	uint32_t reg_count;
@@ -31,11 +35,19 @@ struct CpuState
 	// Flags
 	uint32_t zero = 0; // Tested with == 0
 	uint32_t negative = 0; // Tested with & 0x1
-	// Bit 0 is interrupts allowed, bit 1 is interrupts pending, bit 2 is NMI pending. Checking
-	// for pending interrupts is done with interrupts >= 3
+	// Bit 0 is interrupts allowed
 	uint32_t interrupts = 0;
+	// Bit 1 is IRQ pending, bit 2 is NMI pending, etc. Checking
+	// for pending interrupts is done with interrupts + pending_interrupts >= 3
+	std::atomic<uint32_t> pending_interrupts;
 	uint32_t carry = 0; // Tested with & 0x2
 	uint32_t other_flags = 0; // Everything else
+
+	// source should be > 0
+	void SetInterruptSource(uint32_t source)
+	{
+		pending_interrupts.fetch_or(1U << source, std::memory_order_acq_rel);
+	}
 
 	bool is_zero() const { return zero == 0; }
 	bool is_negative() const { return negative & 1; }

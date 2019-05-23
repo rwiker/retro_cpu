@@ -74,7 +74,7 @@ uint8_t WDC65C816::GetStatusRegister()
 	uint8_t v = cpu_state.other_flags & 0x48;
 	if(!cpu_state.zero)
 		v |= 2;
-	if(!(cpu_state.interrupts & 1))
+	if(!cpu_state.interrupts)
 		v |= 4;
 	if(cpu_state.carry & 2)
 		v |= 1;
@@ -96,8 +96,7 @@ void WDC65C816::SetStatusRegister(uint8_t v)
 	cpu_state.other_flags = v;
 	cpu_state.zero = 2 - (v & 2);
 	cpu_state.carry = (v & 1) << 1;
-	cpu_state.interrupts = (cpu_state.interrupts & ~1U)
-		| !((v >> 2) & 1);
+	cpu_state.interrupts = ((v >> 2) & 1);
 	cpu_state.negative = v >> 7;
 
 	bool changed_mode = false;
@@ -152,7 +151,7 @@ void WDC65C816::DoInterrupt(InterruptType type)
 	cpu_state.ip = pc;
 	cpu_state.code_segment_base = 0;
 
-	cpu_state.interrupts &= ~1U;
+	cpu_state.interrupts = 0;
 	if(!mode_native_6502)
 		cpu_state.other_flags &= 0xFFF7;
 }

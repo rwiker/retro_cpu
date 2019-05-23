@@ -1034,7 +1034,7 @@ struct CLI
 
 	static void Exec(WDC65C816 *cpu)
 	{
-		cpu->cpu_state.interrupts |= 1;
+		cpu->cpu_state.interrupts = 1;
 		cpu->cpu_state.ip += kBytes;
 	}
 };
@@ -1050,7 +1050,7 @@ struct SEI
 
 	static void Exec(WDC65C816 *cpu)
 	{
-		cpu->cpu_state.interrupts &= ~1U;
+		cpu->cpu_state.interrupts = 0;
 		cpu->cpu_state.ip += kBytes;
 	}
 };
@@ -1128,7 +1128,7 @@ struct REP
 		if(flags & 1)
 			cpu->cpu_state.carry = 0;
 		if(flags & 4)
-			cpu->cpu_state.interrupts |= 1;
+			cpu->cpu_state.interrupts = 1;
 		if(flags & 0x80)
 			cpu->cpu_state.negative = 0;
 		if(((flags & 0x10) && !cpu->mode_long_xy) || ((flags & 0x20) && !cpu->mode_long_a)) {
@@ -1162,7 +1162,7 @@ struct SEP
 		if(flags & 2)
 			cpu->cpu_state.zero = 0;
 		if(flags & 4)
-			cpu->cpu_state.interrupts &= ~1U;
+			cpu->cpu_state.interrupts = 0;
 		if(flags & 0x80)
 			cpu->cpu_state.negative = 1;
 		if(((flags & 0x10) && cpu->mode_long_xy) || ((flags & 0x20) && cpu->mode_long_a)) {
