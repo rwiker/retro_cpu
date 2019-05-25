@@ -135,13 +135,27 @@ public:
 		Push((uint8_t)(v >> 8));
 		Push((uint8_t)(v & 0xFF));
 	}
-	void Pop(uint8_t& v)
+	// "Old" pop behaviour wraps in emulation mode on pages
+	void PopOld(uint8_t& v)
 	{
 		if(mode_emulation)
 			cpu_state.regs.sp.u8[0]++;
 		else
 			cpu_state.regs.sp.u16++;
 		ReadZero(cpu_state.regs.sp.u16, v);
+	}
+	void PopOld(uint16_t& v)
+	{
+		Pop(v);
+	}
+	void Pop(uint8_t& v)
+	{
+		// "New" pop behaviour never wraps on pages
+		ReadZero(cpu_state.regs.sp.u16 + 1, v);
+		if(mode_emulation)
+			cpu_state.regs.sp.u8[0]++;
+		else
+			cpu_state.regs.sp.u16++;
 	}
 	void Pop(uint16_t& v)
 	{

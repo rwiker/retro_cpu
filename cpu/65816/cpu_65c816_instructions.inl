@@ -88,13 +88,24 @@ struct Addr16bitDataOp
 	};
 };
 
-template<typename U>
+template<typename U, bool emulation = false>
 struct Addr16bitZeroOp
 {
-	template<typename T>
-	static void Read(WDC65C816 *cpu, T& v)
+	static void Read(WDC65C816 *cpu, uint8_t& v)
 	{
 		cpu->ReadZero(U::CalcEffectiveAddress(cpu), v);
+	}
+	static void Read(WDC65C816 *cpu, uint16_t& v)
+	{
+		auto addr = U::CalcEffectiveAddress(cpu);
+		// The high bit is a magic flag to indicate this access wraps at 256 byte page boundaries
+		if (emulation && (addr & 0x80000000)) {
+			uint8_t lo, hi;
+			cpu->ReadZero(addr, lo);
+			cpu->ReadZero((addr & 0xFFFF00) | ((addr + 1) & 0xFF), hi);
+		} else {
+			cpu->ReadZero(addr, v);
+		}
 	}
 	template<typename T>
 	static void Write(WDC65C816 *cpu, T value)
@@ -367,8 +378,8 @@ struct AddrAbsLongX : Addr24bitOp<AddrAbsLongX<AType, XYType>>
 	};
 };
 
-template<uint32_t offset_reg, typename T>
-struct AddrDirectBase : public Addr16bitZeroOp<AddrDirectBase<offset_reg, T>>
+template<uint32_t offset_reg, typename T, bool emulation = false>
+struct AddrDirectBase : public Addr16bitZeroOp<AddrDirectBase<offset_reg, T, emulation>, emulation>
 {
 	typedef T Base;
 	static constexpr uint32_t Bytes() { return 1; }
@@ -378,10 +389,15 @@ struct AddrDirectBase : public Addr16bitZeroOp<AddrDirectBase<offset_reg, T>>
 		uint8_t addr;
 		cpu->ReadPBR(cpu->cpu_state.ip + 1, addr);
 		uint32_t direct = cpu->cpu_state.regs.d.u16;
-		if(cpu->cpu_state.regs.d.u8[0])
+		if(cpu->cpu_state.regs.d.u8[0]) {
 			cpu->cpu_state.cycle += cpu->internal_cycle_timing;
+		} else if constexpr(emulation && offset_reg != REG_MAX) {
+			// Emulation w/ DL == 0, page wrap
+			return 0x80000000 | direct |
+				((cpu->cpu_state.regs.reglist[offset_reg].u8[0] + addr) & 0xFF);
+		}
 		if constexpr(offset_reg != REG_MAX) {
-			cpuaddr_t sum = cpu->cpu_state.regs.reglist[offset_reg].u16 + addr;
+			cpuaddr_t sum = (uint32_t)cpu->cpu_state.regs.reglist[offset_reg].u16 + addr;
 			if(sum > 0xFF)
 				cpu->cpu_state.cycle += cpu->internal_cycle_timing;
 			return direct + sum;
@@ -393,8 +409,8 @@ struct AddrDirectBase : public Addr16bitZeroOp<AddrDirectBase<offset_reg, T>>
 
 
 
-template<typename AType, typename XYType>
-struct AddrDirect : AddrDirectBase<REG_MAX, AddrDirect<AType, XYType>>
+template<typename AType, typename XYType, bool emulation = false>
+struct AddrDirect : AddrDirectBase<REG_MAX, AddrDirect<AType, XYType, emulation>, emulation>
 {
 	typedef AType A;
 	typedef XYType XY;
@@ -412,8 +428,8 @@ struct AddrDirect : AddrDirectBase<REG_MAX, AddrDirect<AType, XYType>>
 	};
 };
 
-template<typename AType, typename XYType>
-struct AddrDirectX : AddrDirectBase<RX, AddrDirect<AType, XYType>>
+template<typename AType, typename XYType, bool emulation = false>
+struct AddrDirectX : AddrDirectBase<RX, AddrDirectX<AType, XYType, emulation>, emulation>
 {
 	typedef AType A;
 	typedef XYType XY;
@@ -432,8 +448,8 @@ struct AddrDirectX : AddrDirectBase<RX, AddrDirect<AType, XYType>>
 	};
 };
 
-template<typename AType, typename XYType>
-struct AddrDirectY : AddrDirectBase<RY, AddrDirect<AType, XYType>>
+template<typename AType, typename XYType, bool emulation = false>
+struct AddrDirectY : AddrDirectBase<RY, AddrDirectY<AType, XYType, emulation>, emulation>
 {
 	typedef AType A;
 	typedef XYType XY;
@@ -484,7 +500,7 @@ struct AddrDirectIndirect : Addr24bitOp<AddrDirectIndirect<AType, XYType>>
 	};
 };
 
-template<typename AType, typename XYType>
+template<typename AType, typename XYType, bool emulation = false>
 struct AddrDirectIndirectX : Addr24bitOp<AddrDirectIndirectX<AType, XYType>>
 {
 	typedef AddrDirectIndirectX Base;
@@ -498,10 +514,8 @@ struct AddrDirectIndirectX : Addr24bitOp<AddrDirectIndirectX<AType, XYType>>
 	static constexpr uint32_t Bytes() { return 1; }
 	static cpuaddr_t CalcEffectiveAddress(WDC65C816 *cpu)
 	{
-		uint8_t addr;
-		cpu->ReadPBR(cpu->cpu_state.ip + 1, addr);
 		uint16_t ret;
-		cpu->ReadZero(cpu->cpu_state.regs.d.u16 + (uint16_t)addr + cpu->cpu_state.regs.x.u16, ret);
+		AddrDirectX<AType, XYType, emulation>::Read(cpu, ret);
 		return cpu->cpu_state.data_segment_base + ret;
 	}
 
@@ -517,7 +531,7 @@ struct AddrDirectIndirectX : Addr24bitOp<AddrDirectIndirectX<AType, XYType>>
 	};
 };
 
-template<typename AType, typename XYType>
+template<typename AType, typename XYType, bool emulation = false>
 struct AddrDirectIndirectY : Addr24bitOp<AddrDirectIndirectY<AType, XYType>>
 {
 	typedef AddrDirectIndirectY Base;
@@ -531,11 +545,12 @@ struct AddrDirectIndirectY : Addr24bitOp<AddrDirectIndirectY<AType, XYType>>
 	static constexpr uint32_t Bytes() { return 1; }
 	static cpuaddr_t CalcEffectiveAddress(WDC65C816 *cpu)
 	{
-		uint8_t addr;
-		cpu->ReadPBR(cpu->cpu_state.ip + 1, addr);
 		uint16_t ret;
-		cpu->ReadZero(cpu->cpu_state.regs.d.u16 + (uint16_t)addr, ret);
-		return cpu->cpu_state.data_segment_base + ret + cpu->cpu_state.regs.y.u16;
+		AddrDirect<AType, XYType, emulation>::Read(cpu, ret);
+		uint32_t sum = (uint32_t)ret + (uint32_t)cpu->cpu_state.regs.y.u16;
+		if(!cpu->mode_long_xy && sum > 0xFF)
+			cpu->cpu_state.cycle += cpu->internal_cycle_timing;
+		return cpu->cpu_state.data_segment_base + sum;
 	}
 
 	template<uint32_t reg>
@@ -1239,7 +1254,11 @@ struct OpPop
 	static void Exec(WDC65C816 *cpu)
 	{
 		Size v;
-		cpu->Pop(v);
+		if constexpr(Impl::kReg == RA) {
+			cpu->PopOld(v);
+		} else {
+			cpu->Pop(v);
+		}
 		cpu->cpu_state.regs.reglist[Impl::kReg].set(v);
 		cpu->SetNZ(v);
 		cpu->cpu_state.ip += kBytes;
@@ -1303,7 +1322,7 @@ struct PLP
 	static void Exec(WDC65C816 *cpu)
 	{
 		uint8_t v;
-		cpu->Pop(v);
+		cpu->PopOld(v);
 		cpu->cpu_state.ip += kBytes;
 		cpu->SetStatusRegister(v);
 	}
@@ -1922,7 +1941,7 @@ struct OpAdc
 
 		uint32_t result = (uint32_t)reg + (uint32_t)data + ((cpu->cpu_state.carry >> 1) & 1);
 		uint32_t cn = result >> (8 * sizeof(data) - 1);
-		cpu->cpu_state.zero = result;
+		cpu->cpu_state.zero = (EffectiveSize)result;
 		cpu->cpu_state.carry = cn;
 		cpu->cpu_state.negative = cn;
 		cpu->cpu_state.other_flags = (cpu->cpu_state.other_flags & 0xFFBF) |
@@ -2061,7 +2080,7 @@ struct TXS
 	static void Exec(WDC65C816 *cpu)
 	{
 		if constexpr(emulation) {
-			cpu->cpu_state.regs.sp.u16 = 0x100 | cpu->cpu_state.regs.x.u8;
+			cpu->cpu_state.regs.sp.u16 = 0x100 | cpu->cpu_state.regs.x.u8[0];
 		} else {
 			cpu->cpu_state.regs.sp.u16 = cpu->cpu_state.regs.x.u16;
 		}
@@ -2083,7 +2102,7 @@ struct TCS
 	static void Exec(WDC65C816 *cpu)
 	{
 		if constexpr(emulation) {
-			cpu->cpu_state.regs.sp.u16 = 0x100 | cpu->cpu_state.regs.a.u8;
+			cpu->cpu_state.regs.sp.u16 = 0x100 | cpu->cpu_state.regs.a.u8[0];
 		} else {
 			cpu->cpu_state.regs.sp.u16 = cpu->cpu_state.regs.a.u16;
 		}

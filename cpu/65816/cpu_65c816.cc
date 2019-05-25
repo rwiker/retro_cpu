@@ -96,7 +96,7 @@ void WDC65C816::SetStatusRegister(uint8_t v)
 	cpu_state.other_flags = v;
 	cpu_state.zero = 2 - (v & 2);
 	cpu_state.carry = (v & 1) << 1;
-	cpu_state.interrupts = ((v >> 2) & 1);
+	cpu_state.interrupts = 1 - ((v >> 2) & 1);
 	cpu_state.negative = v >> 7;
 
 	bool changed_mode = false;
@@ -129,22 +129,26 @@ void WDC65C816::DoInterrupt(InterruptType type)
 	Push(pc);
 
 	uint8_t status = GetStatusRegister();
-	if(mode_emulation)
-		status = (status & 0xCF) | ((type == IRQ) ? 0x10 : 0x30);
+	if(mode_emulation) {
+		if(type == IRQ || type == BRK || type == NMI)
+			status = (status & 0xCF) | ((type == IRQ) ? 0x10 : 0x30);
+		else
+			status = (status & 0xCF) | 0x20;
+	}
 	Push(status);
 	uint16_t vector;
 	switch(type) {
 	case BRK:
-		vector = (mode_emulation ? 0xFFEE : 0xFFE6);
+		vector = (mode_emulation ? 0xFFFE : 0xFFE6);
 		break;
 	case COP:
-		vector = 0xFFE4;
+		vector = (mode_emulation ? 0xFFF4 : 0xFFE4);
 		break;
 	case IRQ:
-		vector = 0xFFEE;
+		vector = (mode_emulation ? 0xFFFE : 0xFFEE);
 		break;
 	case NMI:
-		vector = 0xFFEA;
+		vector = (mode_emulation ? 0xFFFA : 0xFFEA);
 		break;
 	}
 	ReadRaw(vector, pc);
@@ -181,10 +185,6 @@ void WDC65C816::PowerOn()
 	cpu_state.regs.y.u16 = 0;
 	cpu_state.regs.d.u16 = 0;
 	cpu_state.regs.sp.u16 = 0x100;
-	if(cpu_state.mode != kNative6502)
-		cpu_state.mode = kEmulation;
-	cpu_state.data_segment_base = 0;
-	cpu_state.code_segment_base = 0;
 	Reset();
 }
 
@@ -200,15 +200,28 @@ void WDC65C816::Reset()
 	cpu_state.cycle += internal_cycle_timing * 4;
 
 	cpu_state.ip = ip_low | ((uint16_t)ip_high << 8);
+	cpu_state.data_segment_base = 0;
+	cpu_state.code_segment_base = 0;
+
+	mode_emulation = true;
+	mode_long_a = false;
+	mode_long_xy = false;
+	OnUpdateMode();
 }
 
 void WDC65C816::OnUpdateMode()
 {
 	if(mode_native_6502) {
 		cpu_state.mode = kNative6502;
+		mode_emulation = true;
+		mode_long_a = false;
+		mode_long_xy = false;
 	} else if(mode_emulation) {
 		cpu_state.mode = kEmulation;
+		mode_long_a = false;
+		mode_long_xy = false;
 	} else {
+		// This must match the order of includes in cpu_65c816_ops.inl
 		cpu_state.mode = (mode_long_a ? 1 : 0) + (mode_long_xy ? 2 : 0);
 	}
 	if(!mode_long_xy) {
