@@ -97,6 +97,7 @@ public:
 	virtual ~JitCoreFactory() {}
 	virtual std::unique_ptr<JitCore> CreateJit(JittableCpu *cpu, SystemBus *system) = 0;
 
+	// This will return the jit for the currently running architecture, if one exists
 	static JitCoreFactory* Get();
 };
 

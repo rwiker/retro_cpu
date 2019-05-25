@@ -1911,7 +1911,7 @@ struct OpAdc
 	{
 		EffectiveSize reg;
 		cpu->cpu_state.regs.a.get(reg);
-		__debugbreak();
+		panic();
 	}
 	template<typename EffectiveSize>
 	static void AddBin(WDC65C816 *cpu, EffectiveSize data)
@@ -1958,7 +1958,7 @@ struct OpSbc
 	{
 		EffectiveSize reg;
 		cpu->cpu_state.regs.a.get(reg);
-		__debugbreak();
+		panic();
 	}
 	template<typename EffectiveSize>
 	static void SubBin(WDC65C816 *cpu, EffectiveSize data)

@@ -1,6 +1,8 @@
 #include "jit_x64.h"
 #include "x64_emitter.h"
 
+#include <algorithm>
+
 extern "C" void x64EnterJitCode(JitX64*, CpuState*, uintptr_t);
 extern "C" void x64Unjitted();
 
@@ -32,11 +34,14 @@ public:
 		return std::make_unique<JitX64>(cpu, system);
 	}
 };
+
+#if PLATFORM_X64
 JitCoreFactory* JitCoreFactory::Get()
 {
 	static X64Factory f;
 	return &f;
 }
+#endif
 
 JitX64::JitX64(JittableCpu *cpu, SystemBus *system) : JitCoreImpl(cpu, system) {}
 
@@ -153,14 +158,14 @@ int JitX64::JitFor(JitPage *page, uint32_t ip, const JitOperation *ops, uint8_t 
 			if(op.destination == kFlagCarry) {
 				e.mov_m_imm_8(REG_CPUSTATE, offsetof(CpuState, carry), 0);
 			} else {
-				__debugbreak();
+				panic();
 			}
 			break;
 		case JitOperation::kIncrementIP:
-			__debugbreak();
+			panic();
 			break;
 		default:
-			__debugbreak();
+			panic();
 		}
 	}
 

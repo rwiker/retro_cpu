@@ -1,5 +1,8 @@
 #include <memory>
+
+#include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "host_system.h"
@@ -54,6 +57,17 @@ public:
 	~File() { close(fd_); }
 	int fd() const { return fd_; }
 
+	std::vector<uint8_t> ReadToVector() override
+	{
+		std::vector<uint8_t> ret;
+		stat s;
+		if(stat(fd_, &s))
+			return ret;
+		ret.resize(s.st_size);
+		read(fd_, ret.data(), s.st_size);
+		return ret;
+	}
+
 private:
 	int fd_;
 };
@@ -74,4 +88,9 @@ std::unique_ptr<NativeMemory> NativeMemory::Create(NativeFile *file, size_t offs
 	if(!mem)
 		return nullptr;
 	return std::make_unique<Mmap>((uint8_t*)mem, size);
+}
+
+size_t NativeMemory::GetNativeSize()
+{
+	return 0x1000;
 }

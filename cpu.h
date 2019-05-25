@@ -6,6 +6,11 @@
 
 #include <atomic>
 
+#include "host_system.h"
+
+void DoPanic(const char *file, int line, const char *function);
+#define panic() DoPanic(__FILE__, __LINE__, PRETTY_FUNCTION);
+
 typedef uint32_t cpuaddr_t;
 
 class EmulatedCpu;

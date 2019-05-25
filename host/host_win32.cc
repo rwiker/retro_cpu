@@ -97,7 +97,7 @@ public:
 		std::vector<uint8_t> data;
 		data.resize((size_t)size.QuadPart);
 		DWORD n;
-		ReadFile(fd_, data.data(), data.size(), &n, nullptr);
+		ReadFile(fd_, data.data(), (DWORD)data.size(), &n, nullptr);
 
 		return data;
 	}

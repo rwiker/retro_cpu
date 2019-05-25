@@ -1,5 +1,7 @@
 #include "cpu.h"
 
+#include <stdio.h>
+
 uint32_t SystemBus::ReadByte(cpuaddr_t addr, uint8_t *data)
 {
 	addr &= mem_mask;
@@ -60,4 +62,12 @@ void EmulatedCpu::Emulate()
 		}
 		exec->emu(exec->emu_context);
 	}
+}
+
+void DoPanic(const char *file, int line, const char *function)
+{
+	printf("Panic hit at %s:%d in %s\n", file, line, function);
+#ifdef _DEBUG
+	DEBUGBREAK();
+#endif
 }

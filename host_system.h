@@ -1,9 +1,32 @@
 #ifndef HOST_SYSTEM_H_
 #define HOST_SYSTEM_H_
 
+#if _WIN32
+#define DEBUGBREAK() __debugbreak()
+#define PRETTY_FUNCTION __FUNCSIG__
+
+#if _M_AMD64 == 100
+#define PLATFORM_X64 1
+#else
+#define PLATFORM_UNKNOWN 1
+#endif
+#else
+#define DEBUGBREAK() assert(false)
+#define PRETTY_FUNCTION __PRETTY_FUNCTION__
+
+
+#ifdef  __x86_64__ 
+#define PLATFORM_X64 1
+#else
+#define PLATFORM_UNKNOWN 1
+#endif
+#endif
+
+
 #include <memory>
 #include <string>
 #include <vector>
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 

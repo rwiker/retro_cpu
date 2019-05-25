@@ -8,3 +8,10 @@ JitCoreImpl::JitCoreImpl(JittableCpu *cpu, SystemBus *system) : cpu(cpu), system
 	inv_page_mask = ~page_mask;
 	memory_pages = system->memory.pages;
 }
+
+#if PLATFORM_UNKNOWN
+JitCoreFactory* JitCoreFactory::Get()
+{
+	return nullptr;
+}
+#endif

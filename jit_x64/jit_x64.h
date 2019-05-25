@@ -18,7 +18,8 @@ public:
 			Memory(std::unique_ptr<NativeMemory> buffer) : buffer(std::move(buffer))
 			{
 				write_ptr = 0;
-				size = this->buffer->GetSize();
+				// We will never have a 4GB region here
+				size = (uint32_t)this->buffer->GetSize();
 				bytes = this->buffer->Pointer();
 			}
 
