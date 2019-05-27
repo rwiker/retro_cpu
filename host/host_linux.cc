@@ -60,8 +60,8 @@ public:
 	std::vector<uint8_t> ReadToVector() override
 	{
 		std::vector<uint8_t> ret;
-		stat s;
-		if(stat(fd_, &s))
+		struct stat s;
+		if(fstat(fd_, &s))
 			return ret;
 		ret.resize(s.st_size);
 		read(fd_, ret.data(), s.st_size);
