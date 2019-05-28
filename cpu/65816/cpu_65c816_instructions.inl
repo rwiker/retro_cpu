@@ -103,6 +103,7 @@ struct Addr16bitZeroOp
 			uint8_t lo, hi;
 			cpu->ReadZero(addr, lo);
 			cpu->ReadZero((addr & 0xFFFF00) | ((addr + 1) & 0xFF), hi);
+			v = ((uint16_t)hi << 8) | lo;
 		} else {
 			cpu->ReadZero(addr, v);
 		}
@@ -395,6 +396,8 @@ struct AddrDirectBase : public Addr16bitZeroOp<AddrDirectBase<offset_reg, T, emu
 			// Emulation w/ DL == 0, page wrap
 			return 0x80000000 | direct |
 				((cpu->cpu_state.regs.reglist[offset_reg].u8[0] + addr) & 0xFF);
+		} else if constexpr(emulation) {
+			return 0x80000000 | direct + addr;
 		}
 		if constexpr(offset_reg != REG_MAX) {
 			cpuaddr_t sum = (uint32_t)cpu->cpu_state.regs.reglist[offset_reg].u16 + addr;
@@ -501,7 +504,7 @@ struct AddrDirectIndirect : Addr24bitOp<AddrDirectIndirect<AType, XYType>>
 };
 
 template<typename AType, typename XYType, bool emulation = false>
-struct AddrDirectIndirectX : Addr24bitOp<AddrDirectIndirectX<AType, XYType>>
+struct AddrDirectIndirectX : Addr24bitOp<AddrDirectIndirectX<AType, XYType, emulation>>
 {
 	typedef AddrDirectIndirectX Base;
 	typedef AType A;
@@ -532,7 +535,7 @@ struct AddrDirectIndirectX : Addr24bitOp<AddrDirectIndirectX<AType, XYType>>
 };
 
 template<typename AType, typename XYType, bool emulation = false>
-struct AddrDirectIndirectY : Addr24bitOp<AddrDirectIndirectY<AType, XYType>>
+struct AddrDirectIndirectY : Addr24bitOp<AddrDirectIndirectY<AType, XYType, emulation>>
 {
 	typedef AddrDirectIndirectY Base;
 	typedef AType A;
@@ -1016,6 +1019,7 @@ struct CLC
 	{
 		cpu->cpu_state.carry = 0;
 		cpu->cpu_state.ip += kBytes;
+		cpu->InternalOp();
 	}
 };
 struct SEC
@@ -1034,6 +1038,7 @@ struct SEC
 	{
 		cpu->cpu_state.carry = 2;
 		cpu->cpu_state.ip += kBytes;
+		cpu->InternalOp();
 	}
 };
 
@@ -1051,6 +1056,7 @@ struct CLI
 	{
 		cpu->cpu_state.interrupts = 1;
 		cpu->cpu_state.ip += kBytes;
+		cpu->InternalOp();
 	}
 };
 struct SEI
@@ -1067,6 +1073,7 @@ struct SEI
 	{
 		cpu->cpu_state.interrupts = 0;
 		cpu->cpu_state.ip += kBytes;
+		cpu->InternalOp();
 	}
 };
 
@@ -1084,6 +1091,7 @@ struct CLD
 	{
 		cpu->cpu_state.other_flags &= 0xFFF7;
 		cpu->cpu_state.ip += kBytes;
+		cpu->InternalOp();
 	}
 };
 struct SED
@@ -1100,6 +1108,7 @@ struct SED
 	{
 		cpu->cpu_state.other_flags |= 0x8;
 		cpu->cpu_state.ip += kBytes;
+		cpu->InternalOp();
 	}
 };
 
@@ -1117,6 +1126,7 @@ struct CLV
 	{
 		cpu->cpu_state.other_flags &= 0xFFBF;
 		cpu->cpu_state.ip += kBytes;
+		cpu->InternalOp();
 	}
 };
 
@@ -1453,7 +1463,7 @@ struct OpRts
 	}
 };
 
-template<bool is_long>
+template<bool is_long, bool emulation_wrap_addr>
 struct JmpAddrModeInd
 {
 	static cpuaddr_t CalcEffectiveAddress(WDC65C816 *cpu)
@@ -1461,7 +1471,14 @@ struct JmpAddrModeInd
 		uint16_t v;
 		cpu->ReadPBR(cpu->cpu_state.ip + 1, v);
 		uint16_t new_pc;
-		cpu->ReadZero(v, new_pc);
+		if constexpr(emulation_wrap_addr) {
+			uint8_t lo, hi;
+			cpu->ReadZero(v, lo);
+			cpu->ReadZero((v & 0xFF00) | ((v + 1) & 0xFF), hi);
+			new_pc = ((uint16_t)hi << 8) | lo;
+		} else {
+			cpu->ReadZero(v, new_pc);
+		}
 		uint32_t ret = new_pc;
 		if constexpr(is_long) {
 			uint8_t bank;
@@ -1498,9 +1515,10 @@ struct RtlImpl
 
 using JMP_ABS = OpJmp<AddrAbs<uint8_t, uint8_t>, JmpImpl<0x4C>, false>;
 using JMP_LONG = OpJmp<AddrAbsLong<uint8_t, uint8_t>, JmpImpl<0x5C>, true>;
-using JMP_INDABS = OpJmp<JmpAddrModeInd<false>, JmpImpl<0x6C>, false>;
+using JMP_INDABS = OpJmp<JmpAddrModeInd<false, false>, JmpImpl<0x6C>, false>;
+using JMP_INDABS_LEGACY = OpJmp<JmpAddrModeInd<false, true>, JmpImpl<0x6C>, false>;
 using JMP_INDABSX = OpJmp<JmpAddrModeIndAbsX, JmpImpl<0x7C>, false>;
-using JMP_INDLONG = OpJmp<JmpAddrModeInd<true>, JmpImpl<0xDC>, true>;
+using JMP_INDLONG = OpJmp<JmpAddrModeInd<true, false>, JmpImpl<0xDC>, true>;
 
 using JSR_ABS = OpJmp<AddrAbs<uint8_t, uint8_t>, JsrImpl<0x20>, false>;
 using JSR_LONG = OpJmp<AddrAbsLong<uint8_t, uint8_t>, JsrImpl<0x22>, true>;
@@ -1918,7 +1936,7 @@ struct OpAdc
 	{
 		typename AddrMode::A v;
 		AddrMode::Read(cpu, v);
-		if(cpu->cpu_state.other_flags & 0x8)
+		if(cpu->supports_decimal && (cpu->cpu_state.other_flags & 0x8))
 			AddDec(cpu, v);
 		else
 			AddBin(cpu, v);
@@ -1965,7 +1983,7 @@ struct OpSbc
 	{
 		typename AddrMode::A v;
 		AddrMode::Read(cpu, v);
-		if(cpu->cpu_state.other_flags & 0x8)
+		if(cpu->supports_decimal && (cpu->cpu_state.other_flags & 0x8))
 			SubDec(cpu, v);
 		else
 			SubBin(cpu, v);

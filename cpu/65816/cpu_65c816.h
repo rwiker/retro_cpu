@@ -34,6 +34,15 @@ public:
 	void WAI();
 	void STP();
 
+	void InternalOp(uint32_t n)
+	{
+		cpu_state.cycle += internal_cycle_timing * n;
+	}
+	void InternalOp()
+	{
+		cpu_state.cycle += internal_cycle_timing;
+	}
+
 	enum InterruptType {
 		BRK, COP, IRQ, NMI
 	};
@@ -257,6 +266,7 @@ public:
 	bool mode_long_a;
 	bool mode_long_xy;
 
+	bool supports_decimal = true;
 	bool fast_block_moves = false;
 
 	typedef void (*instruction_exec_fn)(WDC65C816 *cpu);

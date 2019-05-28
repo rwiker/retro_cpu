@@ -180,7 +180,7 @@ OP(RTS) OP(OpAdc<AddrDirectIndirectX<OP_A, OP_XY, true>>) NYI() NYI()
 NYI() OP(OpAdc<AddrDirect<OP_A, OP_XY, true>>) OP(OpRor<AddrDirect<OP_A, OP_XY, true>>) NYI()
 // 68
 OP(PLA<OP_A>) OP(OpAdc<AddrImm<OP_A, OP_XY, OP_A>>) OP(OpRor<AddrA<OP_A, OP_XY>>) NYI()
-OP(JMP_INDABS) OP(OpAdc<AddrAbs<OP_A, OP_XY>>) OP(OpRor<AddrAbs<OP_A, OP_XY>>) NYI()
+OP(JMP_INDABS_LEGACY) OP(OpAdc<AddrAbs<OP_A, OP_XY>>) OP(OpRor<AddrAbs<OP_A, OP_XY>>) NYI()
 // 70
 OP(BVS) OP(OpAdc<AddrDirectIndirectY<OP_A, OP_XY, true>>) NYI() NYI()
 NYI() OP(OpAdc<AddrDirectX<OP_A, OP_XY, true>>) OP(OpRor<AddrDirectX<OP_A, OP_XY, true>>) NYI()
