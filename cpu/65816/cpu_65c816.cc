@@ -160,11 +160,16 @@ void WDC65C816::DoInterrupt(InterruptType type)
 		cpu_state.other_flags &= 0xFFF7;
 }
 
+//FILE *f = fopen("f:/log.txt", "wt");
 void WDC65C816::EmulateInstruction(void *context)
 {
 	WDC65C816 *self = (WDC65C816*)context;
 	uint8_t instruction;
 	self->ReadPBR(self->cpu_state.ip, instruction);
+	//fprintf(f,"A:%02X X:%02X Y:%02X %04X:%02X %s\n",
+	//	self->cpu_state.regs.a.u8[0], self->cpu_state.regs.x.u8[0], self->cpu_state.regs.y.u8[0],
+	//	self->cpu_state.ip, instruction, mnemonics[self->cpu_state.mode][instruction]);
+	//fflush(f);
 	self->current_instruction_set[instruction](self);
 	self->num_emulated_instructions++;
 }
@@ -185,6 +190,7 @@ void WDC65C816::PowerOn()
 	cpu_state.regs.y.u16 = 0;
 	cpu_state.regs.d.u16 = 0;
 	cpu_state.regs.sp.u16 = 0x100;
+	cpu_state.zero = 1;
 	Reset();
 }
 
@@ -202,6 +208,8 @@ void WDC65C816::Reset()
 	cpu_state.ip = ip_low | ((uint16_t)ip_high << 8);
 	cpu_state.data_segment_base = 0;
 	cpu_state.code_segment_base = 0;
+
+	cpu_state.interrupts = 0;
 
 	mode_emulation = true;
 	mode_long_a = false;

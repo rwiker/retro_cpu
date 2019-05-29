@@ -75,8 +75,8 @@ private:
 
 std::unique_ptr<NativeMemory> NativeMemory::Create(size_t size)
 {
-	void *mem = mmap(nullptr, size, PROT_WRITE|PROT_READ, MAP_ANONYMOUS, -1, 0);
-	if(!mem)
+	void *mem = mmap(nullptr, size, PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	if(mem == (void*)-1LL)
 		return nullptr;
 	return std::make_unique<Mmap>((uint8_t*)mem, size);
 }
@@ -85,7 +85,7 @@ std::unique_ptr<NativeMemory> NativeMemory::Create(NativeFile *file, size_t offs
 {
 	void *mem = mmap(nullptr, size, PROT_WRITE|PROT_READ, MAP_PRIVATE,
 		static_cast<File*>(file)->fd(), offset);
-	if(!mem)
+	if(mem == (void*)-1LL)
 		return nullptr;
 	return std::make_unique<Mmap>((uint8_t*)mem, size);
 }

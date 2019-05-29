@@ -154,6 +154,7 @@ struct AddrA
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "A";
 
 	static constexpr uint8_t op_bits = 4;
@@ -202,6 +203,7 @@ struct AddrImm
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "#%X";
 
 	static constexpr uint8_t op_bits = 8;
@@ -238,11 +240,13 @@ struct AddrImm
 	};
 };
 
-template<uint32_t offset_reg, typename T>
-struct AddrAbsBase : public Addr24bitOp<AddrAbsBase<offset_reg, T>>
+template<uint32_t offset_reg, typename T, bool check_extra_cycle>
+struct AddrAbsBase : public Addr24bitOp<AddrAbsBase<offset_reg, T, check_extra_cycle>>
 {
 	typedef T Base;
 	static constexpr uint32_t Bytes() { return 2; }
+
+	static constexpr bool kMaybeHasConditionalCycle = offset_reg != REG_MAX;
 
 	static cpuaddr_t CalcEffectiveAddress(WDC65C816 *cpu)
 	{
@@ -251,7 +255,7 @@ struct AddrAbsBase : public Addr24bitOp<AddrAbsBase<offset_reg, T>>
 		uint32_t eff_addr = addr;
 		if constexpr(offset_reg != REG_MAX) {
 			eff_addr += cpu->cpu_state.regs.reglist[offset_reg].u16;
-			if((eff_addr ^ addr) & 0xFF00)
+			if(check_extra_cycle && ((eff_addr ^ addr) & 0xFF00))
 				cpu->cpu_state.cycle += cpu->internal_cycle_timing;
 		}
 		return eff_addr + cpu->cpu_state.data_segment_base;
@@ -259,7 +263,7 @@ struct AddrAbsBase : public Addr24bitOp<AddrAbsBase<offset_reg, T>>
 };
 
 template<typename AType, typename XYType>
-struct AddrAbs : public AddrAbsBase<REG_MAX, AddrAbs<AType, XYType>>
+struct AddrAbs : public AddrAbsBase<REG_MAX, AddrAbs<AType, XYType>, false>
 {
 	typedef AType A;
 	typedef XYType XY;
@@ -278,8 +282,8 @@ struct AddrAbs : public AddrAbsBase<REG_MAX, AddrAbs<AType, XYType>>
 	};
 };
 
-template<typename AType, typename XYType>
-struct AddrAbsX : public AddrAbsBase<RX, AddrAbsX<AType, XYType>>
+template<typename AType, typename XYType, bool check_extra_cycle = true>
+struct AddrAbsX : public AddrAbsBase<RX, AddrAbsX<AType, XYType, check_extra_cycle>, check_extra_cycle>
 {
 	typedef AType A;
 	typedef XYType XY;
@@ -298,8 +302,8 @@ struct AddrAbsX : public AddrAbsBase<RX, AddrAbsX<AType, XYType>>
 	};
 };
 
-template<typename AType, typename XYType>
-struct AddrAbsY : public AddrAbsBase<RY, AddrAbsX<AType, XYType>>
+template<typename AType, typename XYType, bool check_extra_cycle = true>
+struct AddrAbsY : public AddrAbsBase<RY, AddrAbsX<AType, XYType, check_extra_cycle>, check_extra_cycle>
 {
 	typedef AType A;
 	typedef XYType XY;
@@ -308,6 +312,7 @@ struct AddrAbsY : public AddrAbsBase<RY, AddrAbsX<AType, XYType>>
 
 	static constexpr uint8_t op_bits = 0xC;
 
+	template<uint32_t reg>
 	struct EffAddr {
 		static constexpr JitOperation ops[] = {
 			{JitOperation::kReadImm, JitOperation::kTempReg | reg, JitOperation::Bytes(2)},
@@ -325,6 +330,7 @@ struct AddrAbsLong : Addr24bitOp<AddrAbsLong<AType, XYType>>
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "%X";
 
 	static constexpr uint8_t op_bits = 0x00;
@@ -355,6 +361,7 @@ struct AddrAbsLongX : Addr24bitOp<AddrAbsLongX<AType, XYType>>
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "%X";
 
 	static constexpr uint8_t op_bits = 0x00;
@@ -382,11 +389,14 @@ struct AddrAbsLongX : Addr24bitOp<AddrAbsLongX<AType, XYType>>
 template<uint32_t offset_reg, typename T, bool emulation = false>
 struct AddrDirectBase : public Addr16bitZeroOp<AddrDirectBase<offset_reg, T, emulation>, emulation>
 {
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	typedef T Base;
 	static constexpr uint32_t Bytes() { return 1; }
 
 	static cpuaddr_t CalcEffectiveAddress(WDC65C816 *cpu)
 	{
+		if constexpr(offset_reg != REG_MAX)
+			cpu->InternalOp();
 		uint8_t addr;
 		cpu->ReadPBR(cpu->cpu_state.ip + 1, addr);
 		uint32_t direct = cpu->cpu_state.regs.d.u16;
@@ -478,6 +488,7 @@ struct AddrDirectIndirect : Addr24bitOp<AddrDirectIndirect<AType, XYType>>
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "(%X)";
 
 	static constexpr uint8_t op_bits = 0x2;
@@ -510,6 +521,7 @@ struct AddrDirectIndirectX : Addr24bitOp<AddrDirectIndirectX<AType, XYType, emul
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "(%X,X)";
 
 	static constexpr uint8_t op_bits = 0x2;
@@ -534,13 +546,14 @@ struct AddrDirectIndirectX : Addr24bitOp<AddrDirectIndirectX<AType, XYType, emul
 	};
 };
 
-template<typename AType, typename XYType, bool emulation = false>
-struct AddrDirectIndirectY : Addr24bitOp<AddrDirectIndirectY<AType, XYType, emulation>>
+template<typename AType, typename XYType, bool check_extra_cycle, bool emulation = false>
+struct AddrDirectIndirectY : Addr24bitOp<AddrDirectIndirectY<AType, XYType, check_extra_cycle, emulation>>
 {
 	typedef AddrDirectIndirectY Base;
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = true;
 	static constexpr const char kFormat[] = "(%X),Y";
 
 	static constexpr uint8_t op_bits = 0x2;
@@ -551,7 +564,7 @@ struct AddrDirectIndirectY : Addr24bitOp<AddrDirectIndirectY<AType, XYType, emul
 		uint16_t ret;
 		AddrDirect<AType, XYType, emulation>::Read(cpu, ret);
 		uint32_t sum = (uint32_t)ret + (uint32_t)cpu->cpu_state.regs.y.u16;
-		if(!cpu->mode_long_xy && sum > 0xFF)
+		if(check_extra_cycle && !cpu->mode_long_xy && ((sum ^ ret) & 0x100))
 			cpu->cpu_state.cycle += cpu->internal_cycle_timing;
 		return cpu->cpu_state.data_segment_base + sum;
 	}
@@ -575,6 +588,7 @@ struct AddrDirectIndirectLong : Addr24bitOp<AddrDirectIndirectLong<AType, XYType
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "[%X]";
 
 	static constexpr uint8_t op_bits = 0x41;
@@ -610,6 +624,7 @@ struct AddrDirectIndirectLongY : Addr24bitOp<AddrDirectIndirectLongY<AType, XYTy
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "[%X],Y";
 
 	static constexpr uint8_t op_bits = 0x41;
@@ -646,6 +661,7 @@ struct AddrStack : Addr16bitZeroOp<AddrStack<AType, XYType>>
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "%X,S";
 
 	static constexpr uint8_t op_bits = 0x41;
@@ -676,6 +692,7 @@ struct AddrStackY : Addr24bitOp<AddrStackY<AType, XYType>>
 	typedef AType A;
 	typedef XYType XY;
 
+	static constexpr bool kMaybeHasConditionalCycle = false;
 	static constexpr const char kFormat[] = "(%X,S),Y";
 
 	static constexpr uint8_t op_bits = 0x41;
@@ -909,6 +926,9 @@ struct OpAsl
 			A b = a << 1;
 			cpu->SetNZ(b);
 			cpu->cpu_state.carry = a >> (8 * bA - 2);
+			cpu->InternalOp();
+			if constexpr(AddrMode::kMaybeHasConditionalCycle)
+				cpu->InternalOp();
 			return b;
 		});
 		cpu->cpu_state.ip += kBytes;
@@ -938,6 +958,9 @@ struct OpLsr
 			cpu->cpu_state.zero = b;
 			cpu->cpu_state.negative = 0;
 			cpu->cpu_state.carry = (a & 1) << 1;
+			cpu->InternalOp();
+			if constexpr(AddrMode::kMaybeHasConditionalCycle)
+				cpu->InternalOp();
 			return b;
 		});
 		cpu->cpu_state.ip += kBytes;
@@ -966,6 +989,9 @@ struct OpRor
 			A b = (a >> 1) | ((cpu->cpu_state.carry & 2) << (8 * bA - 2));
 			cpu->SetNZ(b);
 			cpu->cpu_state.carry = (a & 1) << 1;
+			cpu->InternalOp();
+			if constexpr(AddrMode::kMaybeHasConditionalCycle)
+				cpu->InternalOp();
 			return b;
 		});
 		cpu->cpu_state.ip += kBytes;
@@ -994,6 +1020,9 @@ struct OpRol
 			A b = (a << 1) | ((cpu->cpu_state.carry & 2) >> 1);
 			cpu->SetNZ(b);
 			cpu->cpu_state.carry = a >> (8 * bA - 2);
+			cpu->InternalOp();
+			if constexpr(AddrMode::kMaybeHasConditionalCycle)
+				cpu->InternalOp();
 			return b;
 		});
 		cpu->cpu_state.ip += kBytes;
@@ -1218,6 +1247,7 @@ struct OpPush
 		Size v;
 		cpu->cpu_state.regs.reglist[Impl::kReg].get(v);
 		cpu->Push(v);
+		cpu->InternalOp();
 		cpu->cpu_state.ip += kBytes;
 	}
 };
@@ -1269,6 +1299,7 @@ struct OpPop
 		} else {
 			cpu->Pop(v);
 		}
+		cpu->InternalOp(2);
 		cpu->cpu_state.regs.reglist[Impl::kReg].set(v);
 		cpu->SetNZ(v);
 		cpu->cpu_state.ip += kBytes;
@@ -1315,6 +1346,7 @@ struct PHP
 	static void Exec(WDC65C816 *cpu)
 	{
 		cpu->Push(cpu->GetStatusRegister());
+		cpu->InternalOp();
 		cpu->cpu_state.ip += kBytes;
 	}
 };
@@ -1333,6 +1365,7 @@ struct PLP
 	{
 		uint8_t v;
 		cpu->PopOld(v);
+		cpu->InternalOp(2);
 		cpu->cpu_state.ip += kBytes;
 		cpu->SetStatusRegister(v);
 	}
@@ -1352,6 +1385,7 @@ struct PHK
 	{
 		uint8_t v = cpu->cpu_state.code_segment_base >> 16;
 		cpu->Push(v);
+		cpu->InternalOp();
 		cpu->cpu_state.ip += kBytes;
 	}
 };
@@ -1389,6 +1423,7 @@ struct PLB
 		uint8_t v;
 		cpu->Pop(v);
 		cpu->cpu_state.data_segment_base = (uint32_t)v << 16;
+		cpu->InternalOp(2);
 		cpu->SetNZ(v);
 		cpu->cpu_state.ip += kBytes;
 	}
@@ -1419,6 +1454,7 @@ struct OpJmp
 		if constexpr(is_long_jump) {
 			cpu->cpu_state.code_segment_base = addr & 0xFF0000;
 		}
+		cpu->InternalOp(Impl::kInternalCycles);
 		cpu->cpu_state.ip = addr;
 	}
 };
@@ -1429,6 +1465,7 @@ struct JmpImpl
 	static constexpr bool pop_pc = false;
 	static constexpr const char kMnemonic[] = "JMP";
 	static constexpr uint8_t opcode = op;
+	static constexpr uint32_t kInternalCycles = 0;
 };
 template<uint8_t op>
 struct JsrImpl
@@ -1437,6 +1474,7 @@ struct JsrImpl
 	static constexpr bool pop_pc = false;
 	static constexpr const char kMnemonic[] = "JSR";
 	static constexpr uint8_t opcode = op;
+	static constexpr uint32_t kInternalCycles = 1;
 };
 
 template<typename Impl>
@@ -1460,6 +1498,7 @@ struct OpRts
 			cpu->Pop(p);
 			cpu->cpu_state.code_segment_base = ((uint32_t)p) << 16;
 		}
+		cpu->InternalOp(Impl::kInternalCycles);
 	}
 };
 
@@ -1505,12 +1544,14 @@ struct RtsImpl
 	static constexpr bool is_long = false;
 	static constexpr const char kMnemonic[] = "RTS";
 	static constexpr uint8_t opcode = 0x60;
+	static constexpr uint32_t kInternalCycles = 3;
 };
 struct RtlImpl
 {
 	static constexpr bool is_long = true;
 	static constexpr const char kMnemonic[] = "RTL";
 	static constexpr uint8_t opcode = 0x6B;
+	static constexpr uint32_t kInternalCycles = 2;
 };
 
 using JMP_ABS = OpJmp<AddrAbs<uint8_t, uint8_t>, JmpImpl<0x4C>, false>;
@@ -1545,6 +1586,7 @@ struct RTI
 		cpu->SetStatusRegister(flags);
 
 		cpu->Pop(pc);
+		cpu->InternalOp(2);
 		cpu->cpu_state.ip = pc;
 		if(!cpu->mode_emulation) {
 			cpu->Pop(bank);
@@ -1572,6 +1614,7 @@ struct CondBranch
 			uint16_t offset16 = offset;
 			if(offset & 0x80)
 				offset16 |= 0xFF00;
+			cpu->InternalOp();
 			cpu->cpu_state.ip += offset16;
 		}
 		cpu->cpu_state.ip += kBytes;
@@ -1703,6 +1746,9 @@ struct OpIncMem
 	{
 		AddrMode::Modify(cpu, [cpu](typename AddrMode::A v) {
 			v++;
+			cpu->InternalOp();
+			if constexpr(AddrMode::kMaybeHasConditionalCycle)
+				cpu->InternalOp();
 			cpu->SetNZ(v);
 			return v;
 		});
@@ -1725,6 +1771,9 @@ struct OpDecMem
 	{
 		AddrMode::Modify(cpu, [cpu](typename AddrMode::A v) {
 			v--;
+			cpu->InternalOp();
+			if constexpr(AddrMode::kMaybeHasConditionalCycle)
+				cpu->InternalOp();
 			cpu->SetNZ(v);
 			return v;
 		});
@@ -1748,6 +1797,7 @@ struct IncDecReg
 		cpu->cpu_state.regs.reglist[Impl::kReg].get(reg);
 		reg += Impl::delta;
 		cpu->cpu_state.regs.reglist[Impl::kReg].set(reg);
+		cpu->InternalOp();
 		cpu->SetNZ(reg);
 		cpu->cpu_state.ip += kBytes;
 	}
@@ -1874,6 +1924,9 @@ struct OpStore
 		EffectiveSize reg;
 		cpu->cpu_state.regs.reglist[Impl::kReg].get(reg);
 		AddrMode::Write(cpu, reg);
+		// Stores always execute their conditional cycle
+		if constexpr(AddrMode::kMaybeHasConditionalCycle)
+			cpu->InternalOp();
 		cpu->cpu_state.ip += kBytes;
 	}
 };
@@ -2345,6 +2398,7 @@ struct OpNOP
 
 	static void Exec(WDC65C816 *cpu)
 	{
+		cpu->InternalOp();
 		cpu->cpu_state.ip += kBytes;
 	}
 };
