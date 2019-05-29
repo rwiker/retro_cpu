@@ -58,5 +58,21 @@ public:
 	static size_t GetNativeSize();
 };
 
+class UnownedMemory : public NativeMemory
+{
+public:
+	UnownedMemory(const void *data, size_t size)
+		: data(const_cast<uint8_t*>(static_cast<const uint8_t*>(data))), size(size) {}
+	uint8_t* Pointer() override { return data; }
+	size_t GetSize() override { return size; }
+	void MakeReadonly() override {}
+	void MapForWrite() override {}
+	void MapForExecute() override {}
+
+private:
+	uint8_t *data;
+	size_t size;
+};
+
 
 #endif

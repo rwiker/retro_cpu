@@ -117,7 +117,13 @@ std::unique_ptr<NativeMemory> NativeMemory::Create(size_t size)
 
 std::unique_ptr<NativeMemory> NativeMemory::Create(NativeFile *file, size_t offset, size_t size)
 {
-	auto mapping = CreateFileMapping(static_cast<File*>(file)->fd(), NULL, PAGE_WRITECOPY, 0, 0, NULL);
+	auto f = static_cast<File*>(file)->fd();
+	if(size == 0) {
+		LARGE_INTEGER li;
+		GetFileSizeEx(f, &li);
+		size = li.QuadPart;
+	}
+	auto mapping = CreateFileMapping(f, NULL, PAGE_WRITECOPY, 0, 0, NULL);
 	if(!mapping)
 		return nullptr;
 	return std::make_unique<FileMap>(mapping, offset, size);

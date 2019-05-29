@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="nes">
+      <UniqueIdentifier>{8bc0d62d-20ce-414a-a6a5-49a1e4ae48e7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="host\host_win32.cc">
@@ -36,6 +39,18 @@
     <ClCompile Include="jit_x64\jit_x64.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="rom.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="system\nes\nes.cc">
+      <Filter>nes</Filter>
+    </ClCompile>
+    <ClCompile Include="system\nes\2c02.cc">
+      <Filter>nes</Filter>
+    </ClCompile>
+    <ClCompile Include="system\nes\nes_mapper.cc">
+      <Filter>nes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="system\c256\c256.h">
@@ -49,6 +64,9 @@
     </ClInclude>
     <ClInclude Include="host_system.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="system\nes\nes_libretro.h">
+      <Filter>nes</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
