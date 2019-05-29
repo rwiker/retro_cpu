@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 #include <atomic>
+#include <functional>
+#include <algorithm>
 
 #include "host_system.h"
 
@@ -53,6 +55,10 @@ struct CpuState
 	{
 		pending_interrupts.fetch_or(1U << source, std::memory_order_acq_rel);
 	}
+	void ClearInterruptSource(uint32_t source)
+	{
+		pending_interrupts.fetch_and(~(1U << source), std::memory_order_acq_rel);
+	}
 
 	bool is_zero() const { return zero == 0; }
 	bool is_negative() const { return negative & 1; }
@@ -85,19 +91,51 @@ struct SystemBus
 		bool (*is_io_device_address)(void *context, cpuaddr_t addr);
 		void (*read)(void *context, cpuaddr_t addr, uint8_t *data, uint32_t size);
 		void (*write)(void *context, cpuaddr_t addr, const uint8_t *data, uint32_t size);
+		// The system should determine whether to deassert the IRQ lines
+		void (*irq_taken)(void *context, uint32_t type);
 		void *context;
 	} io_devices;
 	MemoryMap memory;
 	EmulatedCpu *cpu;
 	uint32_t mem_mask;
 
-	void Map(cpuaddr_t addr, uint8_t *ptr, uint32_t len);
+	void Map(cpuaddr_t addr, uint8_t *ptr, uint32_t len, bool readonly = false);
 
 	uint32_t ReadByte(cpuaddr_t addr, uint8_t *data);
-	uint32_t WriteByte(uint32_t addr, uint8_t v);
+	uint32_t ReadByteNoIo(cpuaddr_t addr, uint8_t *data);
+	uint32_t WriteByte(cpuaddr_t addr, uint8_t v);
+	uint32_t WriteByteNoIo(cpuaddr_t addr, uint8_t v);
 	void Init(uint32_t size_shift, uint32_t addr_bus_bits, Page *pages);
 };
 
+class EventQueue
+{
+public:
+	void Schedule(uint64_t t, std::function<void()> f);
+
+	void Expire(uint64_t t);
+
+	uint64_t next() const
+	{
+		if(entries.empty())
+			return ~0ULL;
+		return entries.front().t;
+	}
+
+	void Start(uint64_t *event_cycle, uint64_t stop_cycle);
+
+private:
+	struct Entry
+	{
+		uint64_t t;
+		std::function<void()> f;
+
+		operator uint64_t() const { return t; }
+	};
+	std::vector<Entry> entries;
+	uint64_t *cycle;
+	uint64_t stop;
+};
 
 class EmulatedCpu
 {
@@ -128,8 +166,38 @@ public:
 	virtual void PowerOn() = 0;
 	virtual void Reset() = 0;
 
-	void Emulate();
+	void Emulate(EventQueue *events = nullptr);
 
+	template<typename U>
+	void EmulateWithCycleProcessing(U& context, EventQueue *events = nullptr)
+	{
+		auto exec = GetExecInfo();
+		auto state = GetCpuState();
+		uint64_t event_cycle = state->cycle_stop;
+		if(events)
+			events->Start(&event_cycle, state->cycle_stop);
+		do {
+			while(state->cycle < event_cycle) {
+				state->ip &= state->ip_mask;
+				uint32_t pending_interrupts = state->pending_interrupts.load(std::memory_order_acquire);
+				if(pending_interrupts + state->interrupts >= 3) {
+					uint32_t type;
+					if(pending_interrupts & 4) {
+						type = 1;
+					} else {
+						type = 0;
+					}
+					exec->interrupt(exec->interrupt_context, type);
+					continue;
+				}
+				context.PreCpuCycle();
+				exec->emu(exec->emu_context);
+				context.PostCpuCycle();
+			}
+			if(events)
+				events->Expire(state->cycle);
+		} while(state->cycle < state->cycle_stop);
+	}
 };
 
 

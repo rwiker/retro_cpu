@@ -158,6 +158,9 @@ void WDC65C816::DoInterrupt(InterruptType type)
 	cpu_state.interrupts = 0;
 	if(!mode_native_6502)
 		cpu_state.other_flags &= 0xFFF7;
+
+	if(type == IRQ || type == NMI)
+		sys->io_devices.irq_taken(sys->io_devices.context, (type == IRQ) ? 1 : 2);
 }
 
 //FILE *f = fopen("f:/log.txt", "wt");

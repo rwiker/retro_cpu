@@ -125,6 +125,7 @@ C256::C256(uint32_t ram_size, const std::string& sysflash_path, const std::strin
 	sys.io_devices.read = &IoRead;
 	sys.io_devices.write = &IoWrite;
 	sys.io_devices.is_io_device_address = &IsIoDeviceAddress;
+	sys.io_devices.irq_taken = [](void*,uint32_t){};
 
 	sys.Init(WDC65C816::kPageSizeBits, cpu.GetAddressBusBits(), pages);
 }

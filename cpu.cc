@@ -13,6 +13,14 @@ uint32_t SystemBus::ReadByte(cpuaddr_t addr, uint8_t *data)
 	}
 	return p.cycles_per_access;
 }
+uint32_t SystemBus::ReadByteNoIo(cpuaddr_t addr, uint8_t *data)
+{
+	addr &= mem_mask;
+	Page& p = memory.pages[addr >> memory.page_shift];
+	*data = p.ptr[addr & memory.page_mask];
+	return p.cycles_per_access;
+}
+
 uint32_t SystemBus::WriteByte(uint32_t addr, uint8_t v)
 {
 	addr &= mem_mask;
@@ -24,11 +32,22 @@ uint32_t SystemBus::WriteByte(uint32_t addr, uint8_t v)
 	}
 	return p.cycles_per_access;
 }
-void SystemBus::Map(cpuaddr_t addr, uint8_t *ptr, uint32_t len)
+uint32_t SystemBus::WriteByteNoIo(uint32_t addr, uint8_t v)
+{
+	addr &= mem_mask;
+	Page& p = memory.pages[addr >> memory.page_shift];
+	if(!(p.flags & Page::kReadOnly)) {
+		p.ptr[addr & memory.page_mask] = v;
+	}
+	return p.cycles_per_access;
+}
+void SystemBus::Map(cpuaddr_t addr, uint8_t *ptr, uint32_t len, bool readonly)
 {
 	uint32_t first_page = addr / memory.page_size;
 	for(uint32_t i = 0; i < len / memory.page_size; i++) {
 		memory.pages[first_page + i].ptr = ptr + i * memory.page_size;
+		if(readonly)
+			memory.pages[first_page + i].flags |= Page::kReadOnly;
 	}
 }
 
@@ -41,28 +60,64 @@ void SystemBus::Init(uint32_t size_shift, uint32_t addr_bus_bits, Page *pages)
 	mem_mask = (1UL << addr_bus_bits) - 1;
 }
 
-void EmulatedCpu::Emulate()
+void EmulatedCpu::Emulate(EventQueue *events)
 {
 	auto exec = GetExecInfo();
 	auto state = GetCpuState();
-	while(state->cycle < state->cycle_stop) {
-		state->ip &= state->ip_mask;
-		uint32_t pending_interrupts = state->pending_interrupts.load(std::memory_order_acquire);
-		if(pending_interrupts + state->interrupts >= 3) {
-			uint32_t type;
-			if(pending_interrupts & 4) {
-				type = 1;
-				state->pending_interrupts.fetch_sub(4);
-			} else {
-				type = 0;
-				state->pending_interrupts.fetch_sub(2);
+	uint64_t event_cycle = state->cycle_stop;
+	if(events)
+		events->Start(&event_cycle, state->cycle_stop);
+	do {
+		while(state->cycle < event_cycle) {
+			state->ip &= state->ip_mask;
+			uint32_t pending_interrupts = state->pending_interrupts.load(std::memory_order_acquire);
+			if(pending_interrupts + state->interrupts >= 3) {
+				uint32_t type;
+				if(pending_interrupts & 4) {
+					type = 1;
+				} else {
+					type = 0;
+				}
+				exec->interrupt(exec->interrupt_context, type);
+				continue;
 			}
-			exec->interrupt(exec->interrupt_context, type);
-			continue;
+			exec->emu(exec->emu_context);
 		}
-		exec->emu(exec->emu_context);
+		events->Expire(state->cycle);
+	} while(state->cycle < state->cycle_stop);
+}
+
+void EventQueue::Schedule(uint64_t t, std::function<void()> f)
+{
+	entries.emplace_back(Entry{t, std::move(f)});
+	std::push_heap(entries.begin(), entries.end(), std::greater<uint64_t>());
+
+	*cycle = std::min(stop, entries.begin()->t);
+}
+
+void EventQueue::Expire(uint64_t t)
+{
+	while(!entries.empty() && entries.front().t <= t) {
+		auto f = std::move(entries.front().f);
+		std::pop_heap(entries.begin(), entries.end(), std::greater<uint64_t>());
+		entries.resize(entries.size() - 1);
+		f();
+	}
+	if(entries.empty())
+		*cycle = stop;
+	else
+		*cycle = std::min(stop, entries.begin()->t);
+}
+
+void EventQueue::Start(uint64_t *event_cycle, uint64_t stop_cycle)
+{
+	cycle = event_cycle;
+	stop = stop_cycle;
+	if(!entries.empty()) {
+		*cycle = std::min(stop_cycle, entries.begin()->t);
 	}
 }
+
 
 void DoPanic(const char *file, int line, const char *function)
 {
