@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS // Shut MSVC up about sprintf
+
 #include "cpu_65c816.h"
 
 #include "cpu_65c816_instructions.inl"
@@ -17,6 +19,13 @@ constexpr const JitOperation *jit_ops[6][256] {
 };
 constexpr const char *mnemonics[6][256] {
 #define OP(...) __VA_ARGS__::kMnemonic,
+#include "cpu_65c816_ops.inl"
+#undef OP
+};
+
+typedef void (*DisassembleFn)(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str);
+constexpr DisassembleFn disassemble_fns[6][256] = {
+#define OP(...) &__VA_ARGS__::Disassemble,
 #include "cpu_65c816_ops.inl"
 #undef OP
 };
@@ -247,4 +256,31 @@ const JitOperation* WDC65C816::GetJit(JitCore *core, cpuaddr_t addr)
 	uint8_t opcode;
 	PeekU8(addr, opcode);
 	return jit_ops[cpu_state.mode][opcode];
+}
+
+bool WDC65C816::DisassembleOneInstruction(uint32_t& canonical_address, CpuInstruction& insn)
+{
+	uint8_t opcode;
+	PeekU8(canonical_address, opcode);
+
+	uint32_t start = canonical_address;
+
+	const char *fixed_str = nullptr;
+	char formatted_str[256];
+	disassemble_fns[cpu_state.mode][opcode](this, canonical_address, &fixed_str, formatted_str);
+
+	uint32_t length  = canonical_address - start;
+
+	insn.canonical_address = canonical_address;
+	insn.length = length;
+
+	insn.asm_string.resize(256);
+	int n = sprintf(&insn.asm_string[0], "%06X: %02X %02X %02X %02X %s",
+		start, opcode, PeekU8(start + 1), PeekU8(start + 2), PeekU8(start + 3),
+		fixed_str ? fixed_str : formatted_str);
+	for(uint32_t i = length * 3; i < 12; i++)
+		insn.asm_string[i + 8] = ' ';
+	insn.asm_string.resize(n);
+
+	return true;
 }

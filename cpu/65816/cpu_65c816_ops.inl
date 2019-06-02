@@ -143,13 +143,13 @@ OP(JSR_INDABSX) OP(OpSbc<AddrAbsX<OP_A, OP_XY>>) OP(OpIncMem<AddrAbsX<OP_A, OP_X
 OP(BRK) OP(OpOr<AddrDirectIndirectX<OP_A, OP_XY, true>>) NYI() NYI()
 NYI() OP(OpOr<AddrDirect<OP_A, OP_XY, true>>) OP(OpAsl<AddrDirect<OP_A, OP_XY, true>>) NYI()
 // 08
-OP(PHP) OP(OpOr<AddrImm<OP_A, OP_XY, OP_A>>) OP(OpAsl<AddrA<OP_A, OP_XY>>) NYI()
+OP(PHP) OP(OpOr<AddrImm<OP_A, OP_XY, OP_A>>) OP(OpAsl<AddrA<OP_A, OP_XY>>) OP(n6502::ANC)
 NYI() OP(OpOr<AddrAbs<OP_A, OP_XY>>) OP(OpAsl<AddrAbs<OP_A, OP_XY>>) NYI()
 // 10
 OP(BPL) OP(OpOr<AddrDirectIndirectY<OP_A, OP_XY, true, true>>) NYI() NYI()
 NYI() OP(OpOr<AddrDirectX<OP_A, OP_XY, true>>) OP(OpAsl<AddrDirectX<OP_A, OP_XY, true>>) NYI()
 // 18
-OP(CLC) OP(OpOr<AddrAbsY<OP_A, OP_XY>>) NYI() NYI()
+OP(CLC) OP(OpOr<AddrAbsY<OP_A, OP_XY>>) OP(n6502::NOP<1>) NYI()
 NYI() OP(OpOr<AddrAbsX<OP_A, OP_XY>>) OP(OpAsl<AddrAbsX<OP_A, OP_XY, false>>) NYI()
 // 20
 OP(JSR_ABS) OP(OpAnd<AddrDirectIndirectX<OP_A, OP_XY, true>>) NYI() NYI()
@@ -161,19 +161,19 @@ OP(OpBit<AddrAbs<OP_A, OP_XY>>) OP(OpAnd<AddrAbs<OP_A, OP_XY>>) OP(OpRol<AddrAbs
 OP(BMI) OP(OpAnd<AddrDirectIndirectY<OP_A, OP_XY, true, true>>) NYI() NYI()
 OP(OpBit<AddrDirectX<OP_A, OP_XY, true>>) OP(OpAnd<AddrDirectX<OP_A, OP_XY, true>>) OP(OpRol<AddrDirectX<OP_A, OP_XY, true>>) NYI()
 // 38
-OP(SEC) OP(OpAnd<AddrAbsY<OP_A, OP_XY>>) NYI() NYI()
+OP(SEC) OP(OpAnd<AddrAbsY<OP_A, OP_XY>>) OP(n6502::NOP<1>) NYI()
 NYI() OP(OpAnd<AddrAbsX<OP_A, OP_XY>>) OP(OpRol<AddrAbsX<OP_A, OP_XY, false>>) NYI()
 // 40
 OP(RTI) OP(OpXor<AddrDirectIndirectX<OP_A, OP_XY, true>>) NYI() NYI()
 NYI() OP(OpXor<AddrDirect<OP_A, OP_XY, true>>) OP(OpLsr<AddrDirect<OP_A, OP_XY, true>>) NYI()
 // 48
-OP(PHA<OP_A>) OP(OpXor<AddrImm<OP_A, OP_XY, OP_A>>) OP(OpLsr<AddrA<OP_A, OP_XY>>) NYI()
+OP(PHA<OP_A>) OP(OpXor<AddrImm<OP_A, OP_XY, OP_A>>) OP(OpLsr<AddrA<OP_A, OP_XY>>) OP(n6502::ALR)
 OP(JMP_ABS) OP(OpXor<AddrAbs<OP_A, OP_XY>>) OP(OpLsr<AddrAbs<OP_A, OP_XY>>) NYI()
 // 50
 OP(BVC) OP(OpXor<AddrDirectIndirectY<OP_A, OP_XY, true, true>>) NYI() NYI()
 NYI() OP(OpXor<AddrDirectX<OP_A, OP_XY, true>>) OP(OpLsr<AddrDirectX<OP_A, OP_XY, true>>) NYI()
 // 58
-OP(CLI) OP(OpXor<AddrAbsY<OP_A, OP_XY>>) NYI() NYI()
+OP(CLI) OP(OpXor<AddrAbsY<OP_A, OP_XY>>) OP(n6502::NOP<1>) NYI()
 NYI() OP(OpXor<AddrAbsX<OP_A, OP_XY>>) OP(OpLsr<AddrAbsX<OP_A, OP_XY, false>>) NYI()
 // 60
 OP(RTS) OP(OpAdc<AddrDirectIndirectX<OP_A, OP_XY, true>>) NYI() NYI()
@@ -185,34 +185,34 @@ OP(JMP_INDABS_LEGACY) OP(OpAdc<AddrAbs<OP_A, OP_XY>>) OP(OpRor<AddrAbs<OP_A, OP_
 OP(BVS) OP(OpAdc<AddrDirectIndirectY<OP_A, OP_XY, true, true>>) NYI() NYI()
 NYI() OP(OpAdc<AddrDirectX<OP_A, OP_XY, true>>) OP(OpRor<AddrDirectX<OP_A, OP_XY, true>>) NYI()
 // 78
-OP(SEI) OP(OpAdc<AddrAbsY<OP_A, OP_XY>>) NYI() NYI()
+OP(SEI) OP(OpAdc<AddrAbsY<OP_A, OP_XY>>) OP(n6502::NOP<1>) NYI()
 NYI() OP(OpAdc<AddrAbsX<OP_A, OP_XY>>) OP(OpRor<AddrAbsX<OP_A, OP_XY, false>>) NYI()
 // 80
-NYI() OP(STA<AddrDirectIndirectX<OP_A, OP_XY, true>>) NYI() NYI()
-OP(STY<AddrDirect<OP_A, OP_XY, true>>) OP(STA<AddrDirect<OP_A, OP_XY, true>>) OP(STX<AddrDirect<OP_A, OP_XY, true>>) NYI()
+OP(n6502::NOP<1, 2>) OP(STA<AddrDirectIndirectX<OP_A, OP_XY, true>>) OP(n6502::NOP<1, 2>) OP(n6502::SAX<AddrDirectIndirectX<OP_A, OP_XY>>)
+OP(STY<AddrDirect<OP_A, OP_XY, true>>) OP(STA<AddrDirect<OP_A, OP_XY, true>>) OP(STX<AddrDirect<OP_A, OP_XY, true>>) OP(n6502::SAX<AddrDirect<OP_A, OP_XY>>)
 // 88
-OP(DEY<OP_A, OP_XY>) OP(OpBitImm<AddrImm<OP_A, OP_XY, OP_A>>) OP(TXA<OP_A, OP_XY>) OP(PHB)
-OP(STY<AddrAbs<OP_A, OP_XY>>) OP(STA<AddrAbs<OP_A, OP_XY>>) OP(STX<AddrAbs<OP_A, OP_XY>>) OP(STA<AddrAbsLong<OP_A, OP_XY>>)
+OP(DEY<OP_A, OP_XY>) NYI() OP(TXA<OP_A, OP_XY>) NYI()
+OP(STY<AddrAbs<OP_A, OP_XY>>) OP(STA<AddrAbs<OP_A, OP_XY>>) OP(STX<AddrAbs<OP_A, OP_XY>>) OP(n6502::SAX<AddrAbs<OP_A, OP_XY>>)
 // 90
 OP(BCC) OP(STA<AddrDirectIndirectY<OP_A, OP_XY, false, true>>) NYI() NYI()
-OP(STY<AddrDirectX<OP_A, OP_XY, true>>) OP(STA<AddrDirectX<OP_A, OP_XY, true>>) OP(STX<AddrDirectY<OP_A, OP_XY, true>>) NYI()
+OP(STY<AddrDirectX<OP_A, OP_XY, true>>) OP(STA<AddrDirectX<OP_A, OP_XY, true>>) OP(STX<AddrDirectY<OP_A, OP_XY, true>>) OP(n6502::SAX<AddrDirectY<OP_A, OP_XY>>)
 // 98
 OP(TYA<OP_A, OP_XY>) OP(STA<AddrAbsY<OP_A, OP_XY, false>>) OP(TXS<true>) NYI()
 NYI() OP(STA<AddrAbsX<OP_A, OP_XY, false>>) NYI() NYI()
 // A0
-OP(LDY<AddrImm<OP_A, OP_XY, OP_XY>>) OP(LDA<AddrDirectIndirectX<OP_A, OP_XY, true>>) OP(LDX<AddrImm<OP_A, OP_XY, OP_XY>>) NYI()
-OP(LDY<AddrDirect<OP_A, OP_XY, true>>) OP(LDA<AddrDirect<OP_A, OP_XY, true>>) OP(LDX<AddrDirect<OP_A, OP_XY, true>>) NYI()
+OP(LDY<AddrImm<OP_A, OP_XY, OP_XY>>) OP(LDA<AddrDirectIndirectX<OP_A, OP_XY, true>>) OP(LDX<AddrImm<OP_A, OP_XY, OP_XY>>) OP(n6502::LAX<AddrDirectIndirectX<OP_A, OP_XY>>)
+OP(LDY<AddrDirect<OP_A, OP_XY, true>>) OP(LDA<AddrDirect<OP_A, OP_XY, true>>) OP(LDX<AddrDirect<OP_A, OP_XY, true>>) OP(n6502::LAX<AddrDirect<OP_A, OP_XY>>)
 // A8
 OP(TAY<OP_A, OP_XY>) OP(LDA<AddrImm<OP_A, OP_XY, OP_A>>) OP(TAX<OP_A, OP_XY>) NYI()
-OP(LDY<AddrAbs<OP_A, OP_XY>>) OP(LDA<AddrAbs<OP_A, OP_XY>>) OP(LDX<AddrAbs<OP_A, OP_XY>>) NYI()
+OP(LDY<AddrAbs<OP_A, OP_XY>>) OP(LDA<AddrAbs<OP_A, OP_XY>>) OP(LDX<AddrAbs<OP_A, OP_XY>>) OP(n6502::LAX<AddrAbs<OP_A, OP_XY>>)
 // B0
-OP(BCS) OP(LDA<AddrDirectIndirectY<OP_A, OP_XY, true, true>>) NYI() NYI()
-OP(LDY<AddrDirectX<OP_A, OP_XY, true>>) OP(LDA<AddrDirectX<OP_A, OP_XY, true>>) OP(LDX<AddrDirectY<OP_A, OP_XY, true>>) NYI()
+OP(BCS) OP(LDA<AddrDirectIndirectY<OP_A, OP_XY, true, true>>) NYI() OP(n6502::LAX<AddrDirectIndirectY<OP_A, OP_XY, true>>)
+OP(LDY<AddrDirectX<OP_A, OP_XY, true>>) OP(LDA<AddrDirectX<OP_A, OP_XY, true>>) OP(LDX<AddrDirectY<OP_A, OP_XY, true>>) OP(n6502::LAX<AddrDirectY<OP_A, OP_XY>>)
 // B8
 OP(CLV) OP(LDA<AddrAbsY<OP_A, OP_XY>>) OP(TSX<OP_A, OP_XY>) NYI()
-OP(LDY<AddrAbsX<OP_A, OP_XY>>) OP(LDA<AddrAbsX<OP_A, OP_XY>>) OP(LDX<AddrAbsY<OP_A, OP_XY>>) NYI()
+OP(LDY<AddrAbsX<OP_A, OP_XY>>) OP(LDA<AddrAbsX<OP_A, OP_XY>>) OP(LDX<AddrAbsY<OP_A, OP_XY>>) OP(n6502::LAX<AddrAbsY<OP_A, OP_XY>>)
 // C0
-OP(OpCpy<AddrImm<OP_A, OP_XY, OP_XY>>) OP(OpCmp<AddrDirectIndirectX<OP_A, OP_XY, true>>) NYI() NYI()
+OP(OpCpy<AddrImm<OP_A, OP_XY, OP_XY>>) OP(OpCmp<AddrDirectIndirectX<OP_A, OP_XY, true>>) OP(n6502::NOP<1, 2>) NYI()
 OP(OpCpy<AddrDirect<OP_A, OP_XY, true>>) OP(OpCmp<AddrDirect<OP_A, OP_XY, true>>) OP(OpDecMem<AddrDirect<OP_A, OP_XY, true>>) NYI()
 // C8
 OP(INY<OP_A, OP_XY>) OP(OpCmp<AddrImm<OP_A, OP_XY, OP_A>>) OP(DEX<OP_A, OP_XY>) NYI()
@@ -221,10 +221,10 @@ OP(OpCpy<AddrAbs<OP_A, OP_XY>>) OP(OpCmp<AddrAbs<OP_A, OP_XY>>) OP(OpDecMem<Addr
 OP(BNE) OP(OpCmp<AddrDirectIndirectY<OP_A, OP_XY, true, true>>) NYI() NYI()
 NYI() OP(OpCmp<AddrDirectX<OP_A, OP_XY, true>>) OP(OpDecMem<AddrDirectX<OP_A, OP_XY, true>>) NYI()
 // D8
-OP(CLD) OP(OpCmp<AddrAbsY<OP_A, OP_XY>>) NYI() NYI()
+OP(CLD) OP(OpCmp<AddrAbsY<OP_A, OP_XY>>) OP(n6502::NOP<1>) NYI()
 NYI() OP(OpCmp<AddrAbsX<OP_A, OP_XY>>) OP(OpDecMem<AddrAbsX<OP_A, OP_XY, false>>) NYI()
 // E0
-OP(OpCpx<AddrImm<OP_A, OP_XY, OP_XY>>) OP(OpSbc<AddrDirectIndirectX<OP_A, OP_XY, true>>) NYI() NYI()
+OP(OpCpx<AddrImm<OP_A, OP_XY, OP_XY>>) OP(OpSbc<AddrDirectIndirectX<OP_A, OP_XY, true>>) OP(n6502::NOP<1, 2>) NYI()
 OP(OpCpx<AddrDirect<OP_A, OP_XY, true>>) OP(OpSbc<AddrDirect<OP_A, OP_XY, true>>) OP(OpIncMem<AddrDirect<OP_A, OP_XY, true>>) NYI()
 // E8
 OP(INX<OP_A, OP_XY>) OP(OpSbc<AddrImm<OP_A, OP_XY, OP_A>>) OP(OpNOP) NYI()
@@ -233,7 +233,7 @@ OP(OpCpx<AddrAbs<OP_A, OP_XY>>) OP(OpSbc<AddrAbs<OP_A, OP_XY>>) OP(OpIncMem<Addr
 OP(BEQ) OP(OpSbc<AddrDirectIndirectY<OP_A, OP_XY, true, true>>) NYI() NYI()
 NYI() OP(OpSbc<AddrDirectX<OP_A, OP_XY, true>>) OP(OpIncMem<AddrDirectX<OP_A, OP_XY, true>>) NYI()
 // F8
-OP(SED) OP(OpSbc<AddrAbsY<OP_A, OP_XY>>) NYI() NYI()
+OP(SED) OP(OpSbc<AddrAbsY<OP_A, OP_XY>>) OP(n6502::NOP<1>) NYI()
 NYI() OP(OpSbc<AddrAbsX<OP_A, OP_XY>>) OP(OpIncMem<AddrAbsX<OP_A, OP_XY, false>>) NYI()
 },
 #undef OP_XY

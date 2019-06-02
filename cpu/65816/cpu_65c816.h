@@ -4,7 +4,7 @@
 #include "cpu.h"
 #include "jit.h"
 
-class WDC65C816 : public EmulatedCpu, public JittableCpu
+class WDC65C816 : public EmulatedCpu, public JittableCpu, public Disassembler
 {
 public:
 	WDC65C816(SystemBus *sys);
@@ -19,6 +19,9 @@ public:
 	const ExecInfo* GetExecInfo() override;
 
 	const JitOperation* GetJit(JitCore *core, cpuaddr_t addr) override;
+
+	Disassembler* GetDisassembler() override { return this; }
+	bool DisassembleOneInstruction(uint32_t& canonical_address, CpuInstruction& insn) override;
 
 	static void EmulateInstruction(void *context);
 	static void Interrupt(void *context, uint32_t param);
@@ -51,6 +54,20 @@ public:
 	void PeekU8(uint32_t addr, uint8_t& v)
 	{
 		sys->ReadByte(addr, &v);
+	}
+	uint8_t PeekU8(uint32_t addr)
+	{
+		uint8_t v;
+		sys->ReadByte(addr, &v);
+		return v;
+	}
+	uint16_t PeekU16(uint32_t addr)
+	{
+		uint8_t u8;
+		sys->ReadByte(addr, &u8);
+		uint16_t v = u8;
+		sys->ReadByte(addr + 1, &u8);
+		return v | (((uint16_t)u8) << 8);
 	}
 	void ReadU8(uint32_t addr, uint8_t& v)
 	{

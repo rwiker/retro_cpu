@@ -7,6 +7,7 @@
 #include <atomic>
 #include <functional>
 #include <algorithm>
+#include <string>
 
 #include "host_system.h"
 
@@ -50,6 +51,8 @@ struct CpuState
 	uint32_t carry = 0; // Tested with & 0x2
 	uint32_t other_flags = 0; // Everything else
 
+	uint32_t GetCanonicalAddress() const { return code_segment_base + ip; }
+
 	// source should be > 0
 	void SetInterruptSource(uint32_t source)
 	{
@@ -63,6 +66,29 @@ struct CpuState
 	bool is_zero() const { return zero == 0; }
 	bool is_negative() const { return negative & 1; }
 	bool is_carry() const { return carry & 2; }
+};
+
+struct CpuInstruction
+{
+	uint32_t canonical_address;
+	uint32_t length;
+	std::string asm_string;
+};
+
+class Disassembler
+{
+public:
+	struct Config
+	{
+		uint32_t max_instruction_count = 32;
+	};
+	virtual ~Disassembler() {}
+
+	std::vector<CpuInstruction> Disassemble(const Config& config, uint32_t& canonical_address);
+	std::vector<CpuInstruction> Disassemble(const Config& config, const CpuState *state);
+
+protected:
+	virtual bool DisassembleOneInstruction(uint32_t& canonical_address, CpuInstruction& insn) = 0;
 };
 
 struct Page
@@ -150,6 +176,8 @@ public:
 
 	virtual uint32_t GetAddressBusBits() = 0;
 	virtual uint32_t GetPCBits() = 0;
+
+	virtual Disassembler* GetDisassembler() { return nullptr; }
 
 	struct ExecInfo
 	{

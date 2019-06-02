@@ -195,6 +195,11 @@ struct AddrA
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s A", mnemonic);
+	}
 };
 
 template<typename AType, typename XYType, typename EffectiveSize>
@@ -238,6 +243,11 @@ struct AddrImm
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s #$%02X", mnemonic, cpu->PeekU8(addr + 1));
+	}
 };
 
 template<uint32_t offset_reg, typename T, bool check_extra_cycle>
@@ -259,6 +269,15 @@ struct AddrAbsBase : public Addr24bitOp<AddrAbsBase<offset_reg, T, check_extra_c
 				cpu->cpu_state.cycle += cpu->internal_cycle_timing;
 		}
 		return eff_addr + cpu->cpu_state.data_segment_base;
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		const char *index = "";
+		if(offset_reg == RX) index = ", X";
+		if(offset_reg == RY) index = ", Y";
+
+		sprintf(formatted_str, "%s $%04X%s", mnemonic, cpu->PeekU16(addr + 1), index);
 	}
 };
 
@@ -352,6 +371,13 @@ struct AddrAbsLong : Addr24bitOp<AddrAbsLong<AType, XYType>>
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		uint32_t v = cpu->PeekU16(addr + 1);
+		v |= (uint32_t)cpu->PeekU8(addr + 3) << 16;
+		sprintf(formatted_str, "%s $%06X", mnemonic, v);
+	}
 };
 
 template<typename AType, typename XYType>
@@ -384,6 +410,13 @@ struct AddrAbsLongX : Addr24bitOp<AddrAbsLongX<AType, XYType>>
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		uint32_t v = cpu->PeekU16(addr + 1);
+		v |= (uint32_t)cpu->PeekU8(addr + 3) << 16;
+		sprintf(formatted_str, "%s $%06X, X", mnemonic, v);
+	}
 };
 
 template<uint32_t offset_reg, typename T, bool emulation = false>
@@ -417,6 +450,15 @@ struct AddrDirectBase : public Addr16bitZeroOp<AddrDirectBase<offset_reg, T, emu
 		} else {
 			return direct + addr;
 		}
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		const char *index = "";
+		if(offset_reg == RX) index = ", X";
+		if(offset_reg == RY) index = ", Y";
+
+		sprintf(formatted_str, "%s $%02X%s", mnemonic, cpu->PeekU8(addr + 1), index);
 	}
 };
 
@@ -512,6 +554,11 @@ struct AddrDirectIndirect : Addr24bitOp<AddrDirectIndirect<AType, XYType>>
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s ($%02X)", mnemonic, cpu->PeekU8(addr + 1));
+	}
 };
 
 template<typename AType, typename XYType, bool emulation = false>
@@ -544,6 +591,11 @@ struct AddrDirectIndirectX : Addr24bitOp<AddrDirectIndirectX<AType, XYType, emul
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s ($%02X, X)", mnemonic, cpu->PeekU8(addr + 1));
+	}
 };
 
 template<typename AType, typename XYType, bool check_extra_cycle, bool emulation = false>
@@ -579,6 +631,11 @@ struct AddrDirectIndirectY : Addr24bitOp<AddrDirectIndirectY<AType, XYType, chec
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s ($%02X), Y", mnemonic, cpu->PeekU8(addr + 1));
+	}
 };
 
 template<typename AType, typename XYType>
@@ -614,6 +671,11 @@ struct AddrDirectIndirectLong : Addr24bitOp<AddrDirectIndirectLong<AType, XYType
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s [$%02X]", mnemonic, cpu->PeekU8(addr + 1));
+	}
 };
 
 
@@ -651,6 +713,11 @@ struct AddrDirectIndirectLongY : Addr24bitOp<AddrDirectIndirectLongY<AType, XYTy
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s [$%02X], Y", mnemonic, cpu->PeekU8(addr + 1));
+	}
 };
 
 
@@ -682,6 +749,11 @@ struct AddrStack : Addr16bitZeroOp<AddrStack<AType, XYType>>
 			{JitOperation::kEnd},
 		};
 	};
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s $%02X, S", mnemonic, cpu->PeekU8(addr + 1));
+	}
 };
 
 
@@ -719,8 +791,12 @@ struct AddrStackY : Addr24bitOp<AddrStackY<AType, XYType>>
 			{JitOperation::kEnd},
 		};
 	};
-};
 
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s ($%02X, S), Y", mnemonic, cpu->PeekU8(addr + 1));
+	}
+};
 
 
 
@@ -748,6 +824,11 @@ struct OpTsb
 		});
 		cpu->cpu_state.ip += kBytes;
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 
 
@@ -758,7 +839,7 @@ struct OpTrb
 	static constexpr uint8_t opcode = 0 | AddrMode::op_bits;
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
-	static constexpr const char *kMnemonic = "TSB";
+	static constexpr const char *kMnemonic = "TRB";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -772,6 +853,11 @@ struct OpTrb
 			return (A)(mem & ~a);
 		});
 		cpu->cpu_state.ip += kBytes;
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
 	}
 };
 
@@ -803,6 +889,11 @@ struct OpBit
 		cpu->cpu_state.other_flags = (cpu->cpu_state.other_flags & 0xFFBF) | (mem & 0x40);
 		cpu->cpu_state.ip += kBytes;
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 
 template<typename AddrMode>
@@ -825,6 +916,11 @@ struct OpBitImm
 		cpu->cpu_state.regs.a.get(a);
 		cpu->cpu_state.zero = a & mem;
 		cpu->cpu_state.ip += kBytes;
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
 	}
 };
 
@@ -862,6 +958,11 @@ struct OpAlu
 		cpu->cpu_state.regs.a.set(a);
 		cpu->SetNZ(a);
 		cpu->cpu_state.ip += kBytes;
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
 	}
 };
 
@@ -933,6 +1034,11 @@ struct OpAsl
 		});
 		cpu->cpu_state.ip += kBytes;
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 
 template<typename AddrMode>
@@ -951,19 +1057,29 @@ struct OpLsr
 		{JitOperation::kEnd},
 	};
 
+	static void SetFlags(WDC65C816 *cpu, A v)
+	{
+		cpu->cpu_state.zero = v >> 1;
+		cpu->cpu_state.negative = 0;
+		cpu->cpu_state.carry = (v & 1) << 1;
+	}
+
 	static void Exec(WDC65C816 *cpu)
 	{
 		AddrMode::Modify(cpu, [cpu](A a) {
 			A b = a >> 1;
-			cpu->cpu_state.zero = b;
-			cpu->cpu_state.negative = 0;
-			cpu->cpu_state.carry = (a & 1) << 1;
+			SetFlags(cpu, a);
 			cpu->InternalOp();
 			if constexpr(AddrMode::kMaybeHasConditionalCycle)
 				cpu->InternalOp();
 			return b;
 		});
 		cpu->cpu_state.ip += kBytes;
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
 	}
 };
 
@@ -996,6 +1112,11 @@ struct OpRor
 		});
 		cpu->cpu_state.ip += kBytes;
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 
 template<typename AddrMode>
@@ -1027,6 +1148,11 @@ struct OpRol
 		});
 		cpu->cpu_state.ip += kBytes;
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 
 
@@ -1050,6 +1176,11 @@ struct CLC
 		cpu->cpu_state.ip += kBytes;
 		cpu->InternalOp();
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 struct SEC
 {
@@ -1069,6 +1200,11 @@ struct SEC
 		cpu->cpu_state.ip += kBytes;
 		cpu->InternalOp();
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
 struct CLI
@@ -1087,6 +1223,11 @@ struct CLI
 		cpu->cpu_state.ip += kBytes;
 		cpu->InternalOp();
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 struct SEI
 {
@@ -1103,6 +1244,11 @@ struct SEI
 		cpu->cpu_state.interrupts = 0;
 		cpu->cpu_state.ip += kBytes;
 		cpu->InternalOp();
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 
@@ -1122,6 +1268,11 @@ struct CLD
 		cpu->cpu_state.ip += kBytes;
 		cpu->InternalOp();
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 struct SED
 {
@@ -1138,6 +1289,11 @@ struct SED
 		cpu->cpu_state.other_flags |= 0x8;
 		cpu->cpu_state.ip += kBytes;
 		cpu->InternalOp();
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 
@@ -1156,6 +1312,11 @@ struct CLV
 		cpu->cpu_state.other_flags &= 0xFFBF;
 		cpu->cpu_state.ip += kBytes;
 		cpu->InternalOp();
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 
@@ -1194,6 +1355,11 @@ struct REP
 			cpu->OnUpdateMode();
 		}
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		sprintf(formatted_str, "REP #$%02X", cpu->PeekU8(addr + 1));
+		addr += kBytes;
+	}
 };
 struct SEP
 {
@@ -1228,6 +1394,11 @@ struct SEP
 			cpu->OnUpdateMode();
 		}
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		sprintf(formatted_str, "SEP #$%02X", cpu->PeekU8(addr + 1));
+		addr += kBytes;
+	}
 };
 
 // STACK OPS
@@ -1249,6 +1420,11 @@ struct OpPush
 		cpu->Push(v);
 		cpu->InternalOp();
 		cpu->cpu_state.ip += kBytes;
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 struct PhaImpl {
@@ -1304,6 +1480,11 @@ struct OpPop
 		cpu->SetNZ(v);
 		cpu->cpu_state.ip += kBytes;
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 struct PlaImpl {
 	static constexpr const char kMnemonic[] = "PLA";
@@ -1349,6 +1530,11 @@ struct PHP
 		cpu->InternalOp();
 		cpu->cpu_state.ip += kBytes;
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
 struct PLP
@@ -1369,6 +1555,11 @@ struct PLP
 		cpu->cpu_state.ip += kBytes;
 		cpu->SetStatusRegister(v);
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
 struct PHK
@@ -1388,6 +1579,11 @@ struct PHK
 		cpu->InternalOp();
 		cpu->cpu_state.ip += kBytes;
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
 struct PHB
@@ -1405,6 +1601,11 @@ struct PHB
 		uint8_t v = cpu->cpu_state.data_segment_base >> 16;
 		cpu->Push(v);
 		cpu->cpu_state.ip += kBytes;
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 
@@ -1426,6 +1627,11 @@ struct PLB
 		cpu->InternalOp(2);
 		cpu->SetNZ(v);
 		cpu->cpu_state.ip += kBytes;
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 
@@ -1456,6 +1662,11 @@ struct OpJmp
 		}
 		cpu->InternalOp(Impl::kInternalCycles);
 		cpu->cpu_state.ip = addr;
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
 	}
 };
 template<uint8_t op>
@@ -1500,6 +1711,11 @@ struct OpRts
 		}
 		cpu->InternalOp(Impl::kInternalCycles);
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
 template<bool is_long, bool emulation_wrap_addr>
@@ -1526,6 +1742,11 @@ struct JmpAddrModeInd
 		}
 		return ret;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s ($%06X)", mnemonic, cpu->PeekU16(addr + 1));
+	}
 };
 struct JmpAddrModeIndAbsX
 {
@@ -1536,6 +1757,11 @@ struct JmpAddrModeIndAbsX
 		uint16_t new_pc;
 		cpu->ReadPBR(v + cpu->cpu_state.regs.x.u16, new_pc);
 		return new_pc;
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
+	{
+		sprintf(formatted_str, "%s ($%06X), X", mnemonic, cpu->PeekU16(addr + 1));
 	}
 };
 
@@ -1593,6 +1819,11 @@ struct RTI
 			cpu->cpu_state.code_segment_base = (uint32_t)bank << 16;
 		}
 	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
 template<typename Impl>
@@ -1606,18 +1837,32 @@ struct CondBranch
 		{JitOperation::kEnd},
 	};
 
+	static uint16_t GetOffset(uint8_t offset)
+	{
+		if(offset & 0x80)
+			return offset | 0xFF00;
+		return offset;
+	}
+
 	static void Exec(WDC65C816 *cpu)
 	{
 		uint8_t offset;
 		cpu->ReadPBR(cpu->cpu_state.ip + 1, offset);
 		if(Impl::DoBranch(cpu)) {
-			uint16_t offset16 = offset;
-			if(offset & 0x80)
-				offset16 |= 0xFF00;
+			uint16_t offset16 = GetOffset(offset);
 			cpu->InternalOp();
 			cpu->cpu_state.ip += offset16;
 		}
 		cpu->cpu_state.ip += kBytes;
+	}
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		uint8_t offset = cpu->PeekU8(addr + 1);
+		uint16_t offset16 = GetOffset(offset);
+		uint16_t target = (addr + 2 + offset16) & 0xFFFF;
+		sprintf(formatted_str, "%s %02X ($%04X %c)", kMnemonic, offset, target,
+			Impl::DoBranch(cpu) ? '+' : '-');
+		addr += kBytes;
 	}
 };
 
@@ -1728,6 +1973,12 @@ struct BRL
 		cpu->ReadPBR(cpu->cpu_state.ip + 1, offset);
 		cpu->cpu_state.ip += offset + 3;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		sprintf(formatted_str, "BRL $%04X", cpu->PeekU16(addr + 1));
+		addr += kBytes;
+	}
 };
 
 // INC/DEC
@@ -1754,6 +2005,12 @@ struct OpIncMem
 		});
 		cpu->cpu_state.ip += kBytes;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 
 template<typename AddrMode>
@@ -1779,6 +2036,12 @@ struct OpDecMem
 		});
 		cpu->cpu_state.ip += kBytes;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 
 template<typename EffectiveSize, typename Impl>
@@ -1800,6 +2063,13 @@ struct IncDecReg
 		cpu->InternalOp();
 		cpu->SetNZ(reg);
 		cpu->cpu_state.ip += kBytes;
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		if(Impl::kReg == RX || Impl::kReg == RY) *str = kMnemonic;
+		else *str = "INC A";
+		addr += kBytes;
 	}
 };
 struct INXImpl
@@ -1883,6 +2153,12 @@ struct OpLoad
 		cpu->SetNZ(reg);
 		cpu->cpu_state.ip += kBytes;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 
 struct LdaImpl
@@ -1929,6 +2205,12 @@ struct OpStore
 			cpu->InternalOp();
 		cpu->cpu_state.ip += kBytes;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 
 struct StaImpl
@@ -1970,6 +2252,12 @@ struct STZ
 		typename AddrMode::A reg = 0;
 		AddrMode::Write(cpu, reg);
 		cpu->cpu_state.ip += kBytes;
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
 	}
 };
 
@@ -2020,6 +2308,12 @@ struct OpAdc
 		reg = result;
 		cpu->cpu_state.regs.a.set(reg);
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 template<typename AddrMode>
 struct OpSbc
@@ -2067,6 +2361,12 @@ struct OpSbc
 		reg = result;
 		cpu->cpu_state.regs.a.set(reg);
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 template<typename AddrMode>
 struct OpCmp
@@ -2095,6 +2395,12 @@ struct OpCmp
 		cpu->SetNZ(diff);
 		cpu->cpu_state.carry = (reg >= data) ? 2 : 0;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 template<typename AddrMode>
 struct OpCpx
@@ -2115,6 +2421,12 @@ struct OpCpx
 		cpu->cpu_state.ip += kBytes;
 		OpCmp<AddrMode>::DoCmp(cpu, reg, v);
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
+	}
 };
 template<typename AddrMode>
 struct OpCpy
@@ -2134,6 +2446,12 @@ struct OpCpy
 		cpu->cpu_state.regs.y.get(reg);
 		cpu->cpu_state.ip += kBytes;
 		OpCmp<AddrMode>::DoCmp(cpu, reg, v);
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		AddrMode::Disassemble(cpu, addr, formatted_str, kMnemonic);
+		addr += kBytes;
 	}
 };
 
@@ -2158,6 +2476,12 @@ struct TXS
 		cpu->cpu_state.ip += kBytes;
 		cpu->cpu_state.cycle += cpu->internal_cycle_timing;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
 template<bool emulation>
@@ -2180,6 +2504,12 @@ struct TCS
 		cpu->cpu_state.ip += kBytes;
 		cpu->cpu_state.cycle += cpu->internal_cycle_timing;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
 template<typename EffectiveSize, typename Impl>
@@ -2200,6 +2530,12 @@ struct MoveReg
 		cpu->SetNZ(v);
 		cpu->cpu_state.ip += kBytes;
 		cpu->cpu_state.cycle += cpu->internal_cycle_timing;
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 
@@ -2324,6 +2660,12 @@ struct MVN
 		if(cpu->BlockMove(bytes[1], bytes[0], 1))
 			cpu->cpu_state.ip += kBytes;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		sprintf(formatted_str, "MVN #$%02X,#$%02X", cpu->PeekU8(addr + 1), cpu->PeekU8(addr + 2));
+		addr += kBytes;
+	}
 };
 
 struct MVP
@@ -2345,6 +2687,12 @@ struct MVP
 		if(cpu->BlockMove(bytes[1], bytes[0], 0xFFFF))
 			cpu->cpu_state.ip += kBytes;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		sprintf(formatted_str, "MVP #$%02X,#$%02X", cpu->PeekU8(addr + 1), cpu->PeekU8(addr + 2));
+		addr += kBytes;
+	}
 };
 
 struct XBA
@@ -2362,6 +2710,12 @@ struct XBA
 		cpu->cpu_state.ip += kBytes;
 		std::swap(cpu->cpu_state.regs.a.u8[0], cpu->cpu_state.regs.a.u8[1]);
 		cpu->SetNZ(cpu->cpu_state.regs.a.u8[0]);
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 
@@ -2384,13 +2738,20 @@ struct XCE
 		cpu->mode_emulation = !cpu->mode_emulation;
 		cpu->OnUpdateMode();
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
-struct OpNOP
+template<uint32_t n, uint32_t b>
+struct OpNOPImpl
 {
 	static constexpr uint8_t opcode = 0xEA;
 
-	static constexpr size_t kBytes = 1;
+	static constexpr size_t kBytes = b;
 	static constexpr const char kMnemonic[] = "NOP";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
@@ -2398,10 +2759,18 @@ struct OpNOP
 
 	static void Exec(WDC65C816 *cpu)
 	{
-		cpu->InternalOp();
+		cpu->InternalOp(n);
 		cpu->cpu_state.ip += kBytes;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
+
+using OpNOP = OpNOPImpl<1, 1>;
 
 struct OpWDM
 {
@@ -2416,6 +2785,12 @@ struct OpWDM
 	static void Exec(WDC65C816 *cpu)
 	{
 		cpu->cpu_state.ip += kBytes;
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 
@@ -2436,6 +2811,12 @@ struct PEA
 		cpu->Push(v);
 		cpu->cpu_state.ip += kBytes;
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		sprintf(formatted_str, "PEA #$%04X", cpu->PeekU16(addr + 1));
+		addr += kBytes;
+	}
 };
 
 struct PEI
@@ -2454,6 +2835,12 @@ struct PEI
 		AddrDirect<uint16_t, uint16_t>::Read(cpu, addr);
 		cpu->cpu_state.ip += kBytes;
 		cpu->Push(addr);
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		sprintf(formatted_str, "PEI $%04X", cpu->PeekU16(addr + 1));
+		addr += kBytes;
 	}
 };
 
@@ -2475,6 +2862,12 @@ struct PER
 		v += cpu->cpu_state.ip;
 		cpu->Push(v);
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		sprintf(formatted_str, "PER %04X", cpu->PeekU16(addr + 1));
+		addr += kBytes;
+	}
 };
 
 struct WAI
@@ -2492,13 +2885,19 @@ struct WAI
 		cpu->cpu_state.ip += kBytes;
 		cpu->WAI();
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 struct STP
 {
 	static constexpr uint8_t opcode = 0xCB;
 
 	static constexpr size_t kBytes = 1;
-	static constexpr const char kMnemonic[] = "WAI";
+	static constexpr const char kMnemonic[] = "STP";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2507,6 +2906,12 @@ struct STP
 	{
 		cpu->cpu_state.ip += kBytes;
 		cpu->STP();
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
 	}
 };
 
@@ -2525,6 +2930,12 @@ struct BRK
 		cpu->cpu_state.ip += kBytes;
 		cpu->DoInterrupt(WDC65C816::BRK);
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
 
 struct COP
@@ -2542,4 +2953,123 @@ struct COP
 		cpu->cpu_state.ip += kBytes;
 		cpu->DoInterrupt(WDC65C816::COP);
 	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
 };
+
+
+namespace n6502 {
+
+template<uint32_t n, uint32_t b = 1>
+using NOP = OpNOPImpl<n, b>;
+
+// NMOS illegal opcodes
+struct ALR
+{
+	static constexpr uint8_t opcode = 0x4B;
+
+	static constexpr size_t kBytes = 2;
+	static constexpr const char kMnemonic[] = "ALR";
+	static constexpr JitOperation ops[] = {
+		{JitOperation::kEnd},
+	};
+
+	static void Exec(WDC65C816 *cpu)
+	{
+		uint8_t v;
+		cpu->ReadPBR(cpu->cpu_state.ip, v);
+		cpu->cpu_state.regs.a.u8[0] &= v;
+		OpLsr<AddrA<uint8_t, uint8_t>>::SetFlags(cpu, cpu->cpu_state.regs.a.u8[0]);
+		cpu->cpu_state.regs.a.u8[0] >>= 1;
+		cpu->cpu_state.ip += kBytes;
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
+};
+
+struct ANC
+{
+	static constexpr uint8_t opcode = 0x0B;
+
+	static constexpr size_t kBytes = 2;
+	static constexpr const char kMnemonic[] = "ANC";
+	static constexpr JitOperation ops[] = {
+		{JitOperation::kEnd},
+	};
+
+	static void Exec(WDC65C816 *cpu)
+	{
+		uint8_t v;
+		cpu->ReadPBR(cpu->cpu_state.ip, v);
+		cpu->cpu_state.regs.a.u8[0] &= v;
+		cpu->SetNZ(cpu->cpu_state.regs.a.u8[0]);
+		cpu->cpu_state.carry = cpu->cpu_state.negative << 1;
+		cpu->cpu_state.ip += kBytes;
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
+};
+
+template<typename AddrMode>
+struct LAX
+{
+	static constexpr uint8_t opcode = 0x0B;
+
+	static constexpr size_t kBytes = LDA<AddrMode>::kBytes;
+	static constexpr const char kMnemonic[] = "LAX";
+	static constexpr JitOperation ops[] = {
+		{JitOperation::kEnd},
+	};
+
+	static void Exec(WDC65C816 *cpu)
+	{
+		LDA<AddrMode>::Exec(cpu);
+		cpu->cpu_state.regs.x.u8[0] = cpu->cpu_state.regs.a.u8[0];
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
+};
+
+template<typename AddrMode>
+struct SAX
+{
+	static constexpr uint8_t opcode = 0x0B;
+
+	static constexpr size_t kBytes = STA<AddrMode>::kBytes;
+	static constexpr const char kMnemonic[] = "SAX";
+	static constexpr JitOperation ops[] = {
+		{JitOperation::kEnd},
+	};
+
+	static void Exec(WDC65C816 *cpu)
+	{
+		uint8_t old = cpu->cpu_state.regs.a.u8[0];
+		cpu->cpu_state.regs.a.u8[0] &= cpu->cpu_state.regs.x.u8[0];
+		STA<AddrMode>::Exec(cpu);
+		cpu->cpu_state.regs.a.u8[0] = old;
+	}
+
+	static void Disassemble(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str)
+	{
+		*str = kMnemonic;
+		addr += kBytes;
+	}
+};
+
+}

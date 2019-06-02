@@ -119,6 +119,28 @@ void EventQueue::Start(uint64_t *event_cycle, uint64_t stop_cycle)
 }
 
 
+std::vector<CpuInstruction> Disassembler::Disassemble(const Config& config, uint32_t& canonical_address)
+{
+	std::vector<CpuInstruction> instructions;
+	instructions.reserve(config.max_instruction_count);
+	for(uint32_t i = 0; i < config.max_instruction_count; i++) {
+		instructions.emplace_back();
+		if(!DisassembleOneInstruction(canonical_address, instructions.back())) {
+			instructions.pop_back();
+			break;
+		}
+	}
+	return instructions;
+}
+
+std::vector<CpuInstruction> Disassembler::Disassemble(const Config& config, const CpuState *state)
+{
+	uint32_t addr = state->GetCanonicalAddress();
+	return Disassemble(config, addr);
+}
+
+
+
 void DoPanic(const char *file, int line, const char *function)
 {
 	printf("Panic hit at %s:%d in %s\n", file, line, function);
