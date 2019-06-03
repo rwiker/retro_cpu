@@ -284,3 +284,18 @@ bool WDC65C816::DisassembleOneInstruction(uint32_t& canonical_address, CpuInstru
 
 	return true;
 }
+
+bool WDC65C816::GetDebugRegState(std::vector<DebugReg>& regs)
+{
+	regs.emplace_back(DebugReg{"A", cpu_state.regs.a.u16, mode_long_a ? 2U : 1U, 0});
+	regs.emplace_back(DebugReg{"X", cpu_state.regs.x.u16, mode_long_xy ? 2U : 1U, 0});
+	regs.emplace_back(DebugReg{"Y", cpu_state.regs.y.u16, mode_long_xy ? 2U : 1U, 0});
+	regs.emplace_back(DebugReg{"SP", cpu_state.regs.sp.u16, mode_emulation ? 1U : 2U, 0});
+	regs.emplace_back(DebugReg{"P", GetStatusRegister(), 1U, 0});
+	if(!mode_native_6502) {
+		regs.emplace_back(DebugReg{"D", cpu_state.regs.d.u16, 2U, 0});
+		regs.emplace_back(DebugReg{"PB", cpu_state.code_segment_base >> 16, 1U, 0});
+		regs.emplace_back(DebugReg{"DB", cpu_state.data_segment_base >> 16, 1U, 0});
+	}
+	return true;
+}

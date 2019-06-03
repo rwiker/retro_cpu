@@ -60,15 +60,40 @@ void SystemBus::Init(uint32_t size_shift, uint32_t addr_bus_bits, Page *pages)
 	mem_mask = (1UL << addr_bus_bits) - 1;
 }
 
+void EmulatedCpu::SingleStep(EventQueue *events)
+{
+	auto exec = GetExecInfo();
+	auto state = GetCpuState();
+	if(events) {
+		events->Expire(state->cycle);
+	}
+	state->ip &= state->ip_mask;
+	uint32_t pending_interrupts = state->pending_interrupts.load(std::memory_order_acquire);
+	if(pending_interrupts + state->interrupts >= 3) {
+		uint32_t type;
+		if(pending_interrupts & 4) {
+			type = 1;
+		} else {
+			type = 0;
+		}
+		exec->interrupt(exec->interrupt_context, type);
+		return;
+	}
+	if(breakpoints.find(state->GetCanonicalAddress()) != breakpoints.end()) {
+		breakpoints.find(state->GetCanonicalAddress())->second(this);
+	}
+	exec->emu(exec->emu_context);
+}
+
 void EmulatedCpu::Emulate(EventQueue *events)
 {
 	auto exec = GetExecInfo();
 	auto state = GetCpuState();
-	uint64_t event_cycle = state->cycle_stop;
+	state->event_cycle = state->cycle_stop;
 	if(events)
-		events->Start(&event_cycle, state->cycle_stop);
+		events->Start(&state->event_cycle, state->cycle_stop);
 	do {
-		while(state->cycle < event_cycle) {
+		while(state->cycle < state->event_cycle) {
 			state->ip &= state->ip_mask;
 			uint32_t pending_interrupts = state->pending_interrupts.load(std::memory_order_acquire);
 			if(pending_interrupts + state->interrupts >= 3) {
@@ -81,13 +106,16 @@ void EmulatedCpu::Emulate(EventQueue *events)
 				exec->interrupt(exec->interrupt_context, type);
 				continue;
 			}
+			if(breakpoints.find(state->GetCanonicalAddress()) != breakpoints.end()) {
+				breakpoints.find(state->GetCanonicalAddress())->second(this);
+			}
 			exec->emu(exec->emu_context);
 		}
 		events->Expire(state->cycle);
 	} while(state->cycle < state->cycle_stop);
 }
 
-void EventQueue::Schedule(uint64_t t, std::function<void()> f)
+void EventQueue::ScheduleNoLock(uint64_t t, std::function<void()> f)
 {
 	entries.emplace_back(Entry{t, std::move(f)});
 	std::push_heap(entries.begin(), entries.end(), std::greater<uint64_t>());
@@ -95,8 +123,15 @@ void EventQueue::Schedule(uint64_t t, std::function<void()> f)
 	*cycle = std::min(stop, entries.begin()->t);
 }
 
+void EventQueue::Schedule(uint64_t t, std::function<void()> f)
+{
+	std::unique_lock<std::mutex> l(lock);
+	ScheduleNoLock(t, std::move(f));
+}
+
 void EventQueue::Expire(uint64_t t)
 {
+	std::unique_lock<std::mutex> l(lock);
 	while(!entries.empty() && entries.front().t <= t) {
 		auto f = std::move(entries.front().f);
 		std::pop_heap(entries.begin(), entries.end(), std::greater<uint64_t>());

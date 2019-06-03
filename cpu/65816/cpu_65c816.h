@@ -22,6 +22,7 @@ public:
 
 	Disassembler* GetDisassembler() override { return this; }
 	bool DisassembleOneInstruction(uint32_t& canonical_address, CpuInstruction& insn) override;
+	bool GetDebugRegState(std::vector<DebugReg>& regs) override;
 
 	static void EmulateInstruction(void *context);
 	static void Interrupt(void *context, uint32_t param);

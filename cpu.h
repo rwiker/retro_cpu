@@ -5,9 +5,11 @@
 #include <stdint.h>
 
 #include <atomic>
+#include <mutex>
 #include <functional>
 #include <algorithm>
 #include <string>
+#include <unordered_map>
 
 #include "host_system.h"
 
@@ -29,6 +31,7 @@ struct CpuState
 
 	uint64_t cycle = 0;
 	uint64_t cycle_stop = 0;
+	uint64_t event_cycle;
 
 	cpuaddr_t code_segment_base;
 	cpuaddr_t ip_mask;
@@ -51,7 +54,7 @@ struct CpuState
 	uint32_t carry = 0; // Tested with & 0x2
 	uint32_t other_flags = 0; // Everything else
 
-	uint32_t GetCanonicalAddress() const { return code_segment_base + ip; }
+	uint32_t GetCanonicalAddress() const { return code_segment_base + (ip & ip_mask); }
 
 	// source should be > 0
 	void SetInterruptSource(uint32_t source)
@@ -134,10 +137,17 @@ struct SystemBus
 	void Init(uint32_t size_shift, uint32_t addr_bus_bits, Page *pages);
 };
 
+struct CpuTrace
+{
+	cpuaddr_t *addrs;
+	uint32_t max, write;
+};
+
 class EventQueue
 {
 public:
 	void Schedule(uint64_t t, std::function<void()> f);
+	void ScheduleNoLock(uint64_t t, std::function<void()> f);
 
 	void Expire(uint64_t t);
 
@@ -158,6 +168,7 @@ private:
 
 		operator uint64_t() const { return t; }
 	};
+	std::mutex lock;
 	std::vector<Entry> entries;
 	uint64_t *cycle;
 	uint64_t stop;
@@ -178,6 +189,15 @@ public:
 	virtual uint32_t GetPCBits() = 0;
 
 	virtual Disassembler* GetDisassembler() { return nullptr; }
+	struct DebugReg
+	{
+		const char *name;
+		uint64_t value;
+		uint32_t size;
+		uint32_t flags;
+	};
+	virtual bool GetDebugRegState(std::vector<DebugReg>& regs) { return false; }
+	virtual CpuTrace* GetDebugTraceState() { return nullptr; }
 
 	struct ExecInfo
 	{
@@ -195,6 +215,8 @@ public:
 	virtual void Reset() = 0;
 
 	void Emulate(EventQueue *events = nullptr);
+
+	void SingleStep(EventQueue *events = nullptr);
 
 	template<typename U>
 	void EmulateWithCycleProcessing(U& context, EventQueue *events = nullptr)
@@ -219,6 +241,9 @@ public:
 					continue;
 				}
 				context.PreCpuCycle();
+				if(breakpoints.find(state->GetCanonicalAddress()) != breakpoints.end()) {
+					breakpoints.find(state->GetCanonicalAddress())->second(this);
+				}
 				exec->emu(exec->emu_context);
 				context.PostCpuCycle();
 			}
@@ -226,6 +251,17 @@ public:
 				events->Expire(state->cycle);
 		} while(state->cycle < state->cycle_stop);
 	}
+
+	bool AddBreakpoint(cpuaddr_t addr, std::function<void(EmulatedCpu*)> fn)
+	{
+		return breakpoints.emplace(std::make_pair(addr, std::move(fn))).second;
+	}
+	void RemoveBreakpoint(cpuaddr_t addr)
+	{
+		breakpoints.erase(addr);
+	}
+
+	std::unordered_map<cpuaddr_t, std::function<void(EmulatedCpu*)>> breakpoints;
 };
 
 
