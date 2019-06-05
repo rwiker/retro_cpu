@@ -4,6 +4,8 @@
 
 #include "cpu_65c816_instructions.inl"
 
+#include <map>
+
 namespace {
 
 typedef void (*exec_fn)(WDC65C816 *cpu);
@@ -23,12 +25,249 @@ constexpr const char *mnemonics[6][256] {
 #undef OP
 };
 
+constexpr const char *formats[6][256] {
+#define OP(...) __VA_ARGS__::kParamFormat,
+#include "cpu_65c816_ops.inl"
+#undef OP
+};
+
+constexpr uint8_t sizes[6][256] {
+#define OP(...) __VA_ARGS__::kBytes,
+#include "cpu_65c816_ops.inl"
+#undef OP
+};
+
 typedef void (*DisassembleFn)(WDC65C816 *cpu, uint32_t& addr, const char **str, char *formatted_str);
 constexpr DisassembleFn disassemble_fns[6][256] = {
 #define OP(...) &__VA_ARGS__::Disassemble,
 #include "cpu_65c816_ops.inl"
 #undef OP
 };
+
+class WDC65816Assembler : public Assembler
+{
+public:
+	static WDC65816Assembler* Get()
+	{
+		static WDC65816Assembler *inst = new WDC65816Assembler();
+		return inst;
+	}
+
+	WDC65816Assembler();
+
+	bool Assemble(const char*& start, std::string& error, std::vector<uint8_t>& bytes) override;
+
+	struct Instruction
+	{
+		uint8_t opcode;
+		uint8_t bytes;
+		const char *format;
+	};
+	struct InstructionGroup
+	{
+		std::vector<Instruction> instructions;
+	};
+
+	struct InstructionList
+	{
+		std::map<std::string, InstructionGroup*> instructions_by_mnemonic;
+	};
+
+	InstructionList instructions_for_mode[WDC65C816::kNumModes];
+	std::vector<std::unique_ptr<InstructionGroup>> groups;
+
+	bool long_a = false;
+	bool long_xy = false;
+	uint32_t current_mode = WDC65C816::kEmulation;
+};
+
+WDC65816Assembler::WDC65816Assembler()
+{
+	for(uint32_t i = 0; i < WDC65C816::kNumModes; i++) {
+		auto& mode = instructions_for_mode[i];
+		for(uint32_t j = 0; j < 256; j++) {
+			const char *mnemonic = mnemonics[i][j];
+			if(!mnemonic)
+				continue;
+			const char *format = formats[i][j];
+			uint8_t size = sizes[i][j];
+
+			auto& group = mode.instructions_by_mnemonic[mnemonic];
+			if(!group) {
+				groups.emplace_back(new InstructionGroup());
+				group = groups.back().get();
+			}
+			group->instructions.emplace_back(Instruction{(uint8_t)j, size, format});
+		}
+	}
+}
+
+void SkipWhitespace(const char*& p)
+{
+	while(isspace(*p))p++;
+}
+void SkipToEndOfLine(const char*& p)
+{
+	while(*p && *p != '\n')p++;
+}
+bool SkipNumber(const char*& p, uint32_t& number)
+{
+	bool hex = false;
+	bool ok = false;
+	if(*p == '$' || p[0] == '0' && p[1] == 'x') {
+		hex = true;
+		p += (p[0] == '0') ? 2 : 1;
+	}
+	while(*p) {
+		if(*p >= '0' && *p <= '9') {
+			number *= hex ? 16 : 10;
+			number += *p - '0';
+			ok = true;
+		} else if(hex && *p >= 'A' && *p <= 'F') {
+			number *= 16;
+			number += 10 + *p - 'A';
+			ok = true;
+		} else if(hex && *p >= 'a' && *p <= 'f') {
+			number *= 16;
+			number += 10 + *p - 'a';
+			ok = true;
+		} else {
+			break;
+		}
+		p++;
+	}
+	return ok;
+}
+void GetToken(std::string& out, const char *& p)
+{
+	while(isalnum(*p) || *p == '.') {
+		out.push_back(toupper(*p++));
+	}
+}
+
+bool TryMatch(const char*& in, const char *format, uint32_t *number = nullptr)
+{
+	while(*format) {
+		while(isspace(*format))format++;
+		if(!*format)
+			break;
+		while(isspace(*in))in++;
+
+		if(*format == '%') {
+			format++;
+			if(*format != 'X')
+				return false;
+			format++;
+			uint32_t v = 0;
+			if(!SkipNumber(in, v))
+				return false;
+			if(number)
+				*number = v;
+		} else {
+			if(toupper(*in++) != toupper(*format++))
+				return false;
+		}
+	}
+	return !!isspace(*in);
+}
+
+bool WDC65816Assembler::Assemble(const char*& p, std::string& error, std::vector<uint8_t>& bytes)
+{
+	while(*p) {
+		SkipWhitespace(p);
+		if(*p == ';') {
+			SkipToEndOfLine(p);
+			continue;
+		}
+		std::string token;
+		GetToken(token, p);
+		if(token[0] == '.') {
+			// Directive
+			if(token == ".LONGI") {
+				token.resize(0);
+				GetToken(token, p);
+				if(token == "ON") long_xy = true;
+				else if(token == "OFF") long_xy = false;
+				else {
+					error = ".LONGI directive expected ON or OFF not " + token;
+					return false;
+				}
+				if(current_mode != WDC65C816::kEmulation && current_mode != WDC65C816::kNative6502)
+					current_mode = (long_a ? 1 : 0) + (long_xy ? 2 : 0);
+			}
+			if(token == ".LONGA") {
+				token.resize(0);
+				GetToken(token, p);
+				if(token == "ON") long_a = true;
+				else if(token == "OFF") long_a = false;
+				else {
+					error = ".LONGA directive expected ON or OFF not " + token;
+					return false;
+				}
+				if(current_mode != WDC65C816::kEmulation && current_mode != WDC65C816::kNative6502)
+					current_mode = (long_a ? 1 : 0) + (long_xy ? 2 : 0);
+			}
+			if(token == ".6502") {
+				current_mode = WDC65C816::kEmulation;
+			}
+			if(token == ".NES") {
+				current_mode = WDC65C816::kNative6502;
+			}
+			if(token == ".65816") {
+				current_mode = (long_a ? 1 : 0) + (long_xy ? 2 : 0);
+			}
+			continue;
+		}
+		if(isalpha(token[0])) {
+			// Assume this is an instruction
+			auto it = instructions_for_mode[current_mode].instructions_by_mnemonic.find(token);
+			if(it != instructions_for_mode[current_mode].instructions_by_mnemonic.end()) {
+				std::vector<Instruction*> candidates;
+				for(auto& e: it->second->instructions) {
+					const char *tmp = p;
+					if(TryMatch(tmp, e.format))
+						candidates.push_back(&e);
+				}
+
+				Instruction *best = nullptr;
+				if(!candidates.empty()) {
+					for(auto candidate : candidates) {
+						uint32_t arg = 0;
+						const char *tmp = p;
+						TryMatch(tmp, candidate->format, &arg);
+
+						if(candidate->bytes > 1 && arg >= (1U << (8 *(candidate->bytes - 1))))
+							continue;
+						if(!best || best->bytes > candidate->bytes)
+							best = candidate;
+					}
+				}
+
+				if(!best) {
+					error = "Unknown instruction format for " + token;
+					return false;
+				}
+
+				bytes.push_back(candidates.front()->opcode);
+				uint32_t v = 0;
+				TryMatch(p, candidates.front()->format, &v);
+				for(uint8_t i = 1; i < candidates.front()->bytes; i++) {
+					bytes.push_back(v & 0xFF);
+					v >>= 8;
+				}
+				if(v > 0) {
+					error = "Constant too large";
+					return false;
+				}
+			} else {
+				error = "Unexpected token " + token;
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
 
 }
 
@@ -298,4 +537,9 @@ bool WDC65C816::GetDebugRegState(std::vector<DebugReg>& regs)
 		regs.emplace_back(DebugReg{"DB", cpu_state.data_segment_base >> 16, 1U, 0});
 	}
 	return true;
+}
+
+Assembler* WDC65C816::GetAssembler()
+{
+	return WDC65816Assembler::Get();
 }

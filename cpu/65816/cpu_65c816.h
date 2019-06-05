@@ -21,6 +21,7 @@ public:
 	const JitOperation* GetJit(JitCore *core, cpuaddr_t addr) override;
 
 	Disassembler* GetDisassembler() override { return this; }
+	Assembler* GetAssembler() override;
 	bool DisassembleOneInstruction(uint32_t& canonical_address, CpuInstruction& insn) override;
 	bool GetDebugRegState(std::vector<DebugReg>& regs) override;
 
@@ -108,8 +109,8 @@ public:
 	}
 	void WriteDBR(uint32_t addr, uint16_t v)
 	{
-		WriteDBR((addr & 0xFFFF), (uint8_t)v);
-		WriteDBR((addr + 1) & 0xFFFF, (uint8_t)(v>>8));
+		WriteDBR((addr & 0xFFFF) | cpu_state.data_segment_base, (uint8_t)v);
+		WriteDBR(((addr + 1) & 0xFFFF) | cpu_state.data_segment_base, (uint8_t)(v>>8));
 	}
 	void ReadZero(uint32_t addr, uint8_t& v)
 	{
@@ -247,6 +248,8 @@ public:
 		kEmulation,
 		// Emulate a 6502 exactly, including 6502-exclusive illegal instructions.
 		kNative6502,
+
+		kNumModes,
 	};
 
 	struct CpuStateImpl : public CpuState

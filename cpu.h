@@ -94,6 +94,13 @@ protected:
 	virtual bool DisassembleOneInstruction(uint32_t& canonical_address, CpuInstruction& insn) = 0;
 };
 
+class Assembler
+{
+public:
+	virtual ~Assembler() {}
+	virtual bool Assemble(const char*& start, std::string& error, std::vector<uint8_t>& bytes) = 0;
+};
+
 struct Page
 {
 	static constexpr uint32_t kReadOnly = 1;
@@ -189,6 +196,7 @@ public:
 	virtual uint32_t GetPCBits() = 0;
 
 	virtual Disassembler* GetDisassembler() { return nullptr; }
+	virtual Assembler* GetAssembler() { return nullptr; }
 	struct DebugReg
 	{
 		const char *name;

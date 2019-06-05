@@ -307,7 +307,7 @@ struct AddrAbsX : public AddrAbsBase<RX, AddrAbsX<AType, XYType, check_extra_cyc
 	typedef AType A;
 	typedef XYType XY;
 
-	static constexpr const char kFormat[] = "%X";
+	static constexpr const char kFormat[] = "%X,X";
 
 	static constexpr uint8_t op_bits = 0xC;
 	template<uint32_t reg>
@@ -327,7 +327,7 @@ struct AddrAbsY : public AddrAbsBase<RY, AddrAbsX<AType, XYType, check_extra_cyc
 	typedef AType A;
 	typedef XYType XY;
 
-	static constexpr const char kFormat[] = "%X";
+	static constexpr const char kFormat[] = "%X,Y";
 
 	static constexpr uint8_t op_bits = 0xC;
 
@@ -388,7 +388,7 @@ struct AddrAbsLongX : Addr24bitOp<AddrAbsLongX<AType, XYType>>
 	typedef XYType XY;
 
 	static constexpr bool kMaybeHasConditionalCycle = false;
-	static constexpr const char kFormat[] = "%X";
+	static constexpr const char kFormat[] = "%X,X";
 
 	static constexpr uint8_t op_bits = 0x00;
 
@@ -489,7 +489,7 @@ struct AddrDirectX : AddrDirectBase<RX, AddrDirectX<AType, XYType, emulation>, e
 	typedef AType A;
 	typedef XYType XY;
 
-	static constexpr const char kFormat[] = "%X";
+	static constexpr const char kFormat[] = "%X,X";
 
 	static constexpr uint8_t op_bits = 0x4;
 
@@ -509,7 +509,7 @@ struct AddrDirectY : AddrDirectBase<RY, AddrDirectY<AType, XYType, emulation>, e
 	typedef AType A;
 	typedef XYType XY;
 
-	static constexpr const char kFormat[] = "%X";
+	static constexpr const char kFormat[] = "%X,Y";
 
 	static constexpr uint8_t op_bits = 0x4;
 
@@ -810,6 +810,7 @@ struct OpTsb
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "TSB";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -840,6 +841,7 @@ struct OpTrb
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "TRB";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -871,6 +873,7 @@ struct OpBit
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "BIT";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -904,6 +907,7 @@ struct OpBitImm
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "BIT";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -937,6 +941,7 @@ struct OpAlu
 	static constexpr size_t bXY = sizeof(XY);
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		// Read data into temp reg 0
 		{JitOperation::kExecuteSublist, 0, 0, AddrMode::template ReadOp<0>::ops},
@@ -1009,6 +1014,7 @@ struct OpAsl
 	static constexpr size_t bXY = sizeof(XY);
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char kMnemonic[] = "ASL";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		// Read data into temp reg 0
 		{JitOperation::kExecuteSublist, 0, 0, AddrMode::template ReadOp<0>::ops},
@@ -1053,6 +1059,7 @@ struct OpLsr
 	static constexpr size_t bXY = sizeof(XY);
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char kMnemonic[] = "LSR";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1095,6 +1102,7 @@ struct OpRor
 	static constexpr size_t bXY = sizeof(XY);
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char kMnemonic[] = "ROR";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1131,6 +1139,7 @@ struct OpRol
 	static constexpr size_t bXY = sizeof(XY);
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char kMnemonic[] = "ROR";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1164,6 +1173,7 @@ struct CLC
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "CLC";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kClearFlag, kFlagCarry},
 		{JitOperation::kIncrementIP, 0, 1},
@@ -1188,6 +1198,7 @@ struct SEC
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "SEC";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kSetFlag, kFlagCarry},
 		{JitOperation::kIncrementIP, 0, 1},
@@ -1213,6 +1224,7 @@ struct CLI
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "CLI";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1235,6 +1247,7 @@ struct SEI
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "SEI";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1258,6 +1271,7 @@ struct CLD
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "CLD";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1280,6 +1294,7 @@ struct SED
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "SED";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1303,6 +1318,7 @@ struct CLV
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "CLV";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1329,6 +1345,7 @@ struct REP
 
 	static constexpr size_t kBytes = 2;
 	static constexpr const char kMnemonic[] = "REP";
+	static constexpr const char *kParamFormat = "#%X";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1367,6 +1384,7 @@ struct SEP
 
 	static constexpr size_t kBytes = 2;
 	static constexpr const char kMnemonic[] = "SEP";
+	static constexpr const char *kParamFormat = "#%X";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1409,6 +1427,7 @@ struct OpPush
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1463,6 +1482,7 @@ struct OpPop
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1520,6 +1540,7 @@ struct PHP
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = "PHP";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1543,6 +1564,7 @@ struct PLP
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = "PLP";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1568,6 +1590,7 @@ struct PHK
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = "PHK";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1592,6 +1615,7 @@ struct PHB
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = "PHB";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1615,6 +1639,7 @@ struct PLB
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = "PLB";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1644,6 +1669,7 @@ struct OpJmp
 
 	static constexpr size_t kBytes = 3 + (is_long_jump ? 1 : 0);
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1695,6 +1721,7 @@ struct OpRts
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1721,6 +1748,7 @@ struct OpRts
 template<bool is_long, bool emulation_wrap_addr>
 struct JmpAddrModeInd
 {
+	static constexpr const char kFormat[] = "(%X)";
 	static cpuaddr_t CalcEffectiveAddress(WDC65C816 *cpu)
 	{
 		uint16_t v;
@@ -1750,6 +1778,7 @@ struct JmpAddrModeInd
 };
 struct JmpAddrModeIndAbsX
 {
+	static constexpr const char kFormat[] = "(%X,X)";
 	static cpuaddr_t CalcEffectiveAddress(WDC65C816 *cpu)
 	{
 		uint16_t v;
@@ -1800,6 +1829,7 @@ struct RTI
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = "RTI";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1833,6 +1863,7 @@ struct CondBranch
 
 	static constexpr size_t kBytes = 2;
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = "%X";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1963,6 +1994,7 @@ struct BRL
 
 	static constexpr size_t kBytes = 3;
 	static constexpr const char *kMnemonic = "BRL";
+	static constexpr const char *kParamFormat = "%X";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -1989,6 +2021,7 @@ struct OpIncMem
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "INC";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2020,6 +2053,7 @@ struct OpDecMem
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "DEC";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2050,6 +2084,7 @@ struct IncDecReg
 	static constexpr uint8_t opcode = Impl::opcode;
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2125,7 +2160,7 @@ using DEY = IncDecReg<XYType, DEYImpl>;
 struct DEAImpl
 {
 	static constexpr uint8_t opcode = 0x3A;
-	static constexpr const char kMnemonic[] = "INA";
+	static constexpr const char kMnemonic[] = "DEA";
 	static constexpr int delta = -1;
 	static constexpr uint32_t kReg = RA;
 };
@@ -2141,6 +2176,7 @@ struct OpLoad
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2191,6 +2227,7 @@ struct OpStore
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2243,6 +2280,7 @@ struct STZ
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "STZ";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2269,6 +2307,7 @@ struct OpAdc
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "ADC";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2322,6 +2361,7 @@ struct OpSbc
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "SBC";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2375,6 +2415,7 @@ struct OpCmp
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "CMP";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2409,6 +2450,7 @@ struct OpCpx
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "CPX";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2435,6 +2477,7 @@ struct OpCpy
 
 	static constexpr size_t kBytes = 1 + AddrMode::Bytes();
 	static constexpr const char *kMnemonic = "CPY";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2463,6 +2506,7 @@ struct TXS
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = "TXS";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2491,6 +2535,7 @@ struct TCS
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = "TCS";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2519,6 +2564,7 @@ struct MoveReg
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char *kMnemonic = Impl::kMnemonic;
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2647,6 +2693,7 @@ struct MVN
 
 	static constexpr size_t kBytes = 3;
 	static constexpr const char kMnemonic[] = "MVN";
+	static constexpr const char *kParamFormat = "%X,%X";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2674,6 +2721,7 @@ struct MVP
 
 	static constexpr size_t kBytes = 3;
 	static constexpr const char kMnemonic[] = "MVP";
+	static constexpr const char *kParamFormat = "%X,%X";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2701,6 +2749,7 @@ struct XBA
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "XBA";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2725,6 +2774,7 @@ struct XCE
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "XCE";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2753,6 +2803,7 @@ struct OpNOPImpl
 
 	static constexpr size_t kBytes = b;
 	static constexpr const char kMnemonic[] = "NOP";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2778,6 +2829,7 @@ struct OpWDM
 
 	static constexpr size_t kBytes = 2;
 	static constexpr const char kMnemonic[] = "WDM";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2800,6 +2852,7 @@ struct PEA
 
 	static constexpr size_t kBytes = 3;
 	static constexpr const char kMnemonic[] = "PEA";
+	static constexpr const char *kParamFormat = "#%X";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2825,6 +2878,7 @@ struct PEI
 
 	static constexpr size_t kBytes = 2;
 	static constexpr const char kMnemonic[] = "PEI";
+	static constexpr const char *kParamFormat = "%X";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2850,6 +2904,7 @@ struct PER
 
 	static constexpr size_t kBytes = 3;
 	static constexpr const char kMnemonic[] = "PER";
+	static constexpr const char *kParamFormat = "%X";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2876,6 +2931,7 @@ struct WAI
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "WAI";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2898,6 +2954,7 @@ struct STP
 
 	static constexpr size_t kBytes = 1;
 	static constexpr const char kMnemonic[] = "STP";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2921,6 +2978,7 @@ struct BRK
 
 	static constexpr size_t kBytes = 2;
 	static constexpr const char kMnemonic[] = "BRK";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2944,6 +3002,7 @@ struct COP
 
 	static constexpr size_t kBytes = 2;
 	static constexpr const char kMnemonic[] = "COP";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -2974,6 +3033,7 @@ struct ALR
 
 	static constexpr size_t kBytes = 2;
 	static constexpr const char kMnemonic[] = "ALR";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -3001,6 +3061,7 @@ struct ANC
 
 	static constexpr size_t kBytes = 2;
 	static constexpr const char kMnemonic[] = "ANC";
+	static constexpr const char *kParamFormat = "";
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -3029,6 +3090,7 @@ struct LAX
 
 	static constexpr size_t kBytes = LDA<AddrMode>::kBytes;
 	static constexpr const char kMnemonic[] = "LAX";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
@@ -3053,6 +3115,7 @@ struct SAX
 
 	static constexpr size_t kBytes = STA<AddrMode>::kBytes;
 	static constexpr const char kMnemonic[] = "SAX";
+	static constexpr const char *kParamFormat = AddrMode::kFormat;
 	static constexpr JitOperation ops[] = {
 		{JitOperation::kEnd},
 	};
