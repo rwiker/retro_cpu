@@ -13,6 +13,7 @@
 #else
 #define DEBUGBREAK() assert(false)
 #define PRETTY_FUNCTION __PRETTY_FUNCTION__
+#define _stricmp strcasecmp
 
 
 #ifdef  __x86_64__ 

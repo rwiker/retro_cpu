@@ -524,6 +524,48 @@ bool WDC65C816::DisassembleOneInstruction(uint32_t& canonical_address, CpuInstru
 	return true;
 }
 
+bool WDC65C816::SetRegister(const char *reg, uint64_t value)
+{
+	if(!_stricmp(reg, "ip") || !_stricmp(reg, "pc")) {
+		cpu_state.ip = (cpuaddr_t)value & 0xFFFF;
+		if(value > 0xFFFF)
+			cpu_state.code_segment_base = (cpuaddr_t)(value & 0xFF0000);
+	} else if(!_stricmp(reg, "a")) {
+		if(mode_long_a)
+			cpu_state.regs.a.u16 = (uint16_t)value;
+		else
+			cpu_state.regs.a.u8[0] = (uint8_t)value;
+	} else if(!_stricmp(reg, "x")) {
+		if(mode_long_xy)
+			cpu_state.regs.x.u16 = (uint16_t)value;
+		else
+			cpu_state.regs.x.u8[0] = (uint8_t)value;
+	} else if(!_stricmp(reg, "y")) {
+		if(mode_long_xy)
+			cpu_state.regs.y.u16 = (uint16_t)value;
+		else
+			cpu_state.regs.y.u8[0] = (uint8_t)value;
+	} else if(!mode_native_6502 && !_stricmp(reg, "c")) {
+		cpu_state.regs.a.u16 = (uint16_t)value;
+	} else if(!mode_native_6502 && !_stricmp(reg, "d")) {
+		cpu_state.regs.d.u16 = (uint16_t)value;
+	} else if(!_stricmp(reg, "sp")) {
+		if(mode_emulation)
+			cpu_state.regs.sp.u16 = 0x100 | (uint8_t)(value & 0xFF);
+		else
+			cpu_state.regs.sp.u16 = (uint16_t)value;
+	} else if(!_stricmp(reg, "p")) {
+		SetStatusRegister((uint8_t)value);
+	} else if(!mode_native_6502 && !_stricmp(reg, "pb")) {
+		cpu_state.code_segment_base = (cpuaddr_t)(value << 16);
+	} else if(!mode_native_6502 && !_stricmp(reg, "db")) {
+		cpu_state.data_segment_base = (cpuaddr_t)(value << 16);
+	} else {
+		return false;
+	}
+	return true;
+}
+
 bool WDC65C816::GetDebugRegState(std::vector<DebugReg>& regs)
 {
 	regs.emplace_back(DebugReg{"A", cpu_state.regs.a.u16, mode_long_a ? 2U : 1U, 0});

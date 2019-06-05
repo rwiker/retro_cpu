@@ -16,8 +16,8 @@ public:
 private:
 	void SetBreakpointImpl(ptrdiff_t addr, std::function<void(EmulatedCpu*)> fn);
 	void ClearBreakpointImpl(ptrdiff_t addr);
-	uint8_t PeekImpl(ptrdiff_t addr, uint32_t nbytes, bool access_io);
-	void PokeImpl(ptrdiff_t addr, uint32_t nbytes, bool access_io, ptrdiff_t value);
+	bool PeekImpl(ptrdiff_t addr, uint32_t nbytes, bool access_io, uint8_t& v);
+	bool PokeImpl(ptrdiff_t addr, uint32_t nbytes, bool access_io, ptrdiff_t value);
 
 	void PauseImpl(bool schedule_event = true);
 	void ResumeImpl();
@@ -36,6 +36,8 @@ private:
 	static int Resume(lua_State *L);
 	static int SingleStep(lua_State *L);
 	static int Disassemble(lua_State *L);
+	static int Assemble(lua_State *L);
+	static int SetRegister(lua_State *L);
 
 	SystemBus *bus;
 	EventQueue *events;

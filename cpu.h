@@ -141,6 +141,7 @@ struct SystemBus
 	uint32_t ReadByteNoIo(cpuaddr_t addr, uint8_t *data);
 	uint32_t WriteByte(cpuaddr_t addr, uint8_t v);
 	uint32_t WriteByteNoIo(cpuaddr_t addr, uint8_t v);
+	bool QueryIo(cpuaddr_t addr);
 	void Init(uint32_t size_shift, uint32_t addr_bus_bits, Page *pages);
 };
 
@@ -205,6 +206,7 @@ public:
 		uint32_t flags;
 	};
 	virtual bool GetDebugRegState(std::vector<DebugReg>& regs) { return false; }
+	virtual bool SetRegister(const char *reg, uint64_t value) { return false; }
 	virtual CpuTrace* GetDebugTraceState() { return nullptr; }
 
 	struct ExecInfo

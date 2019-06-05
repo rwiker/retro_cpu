@@ -2,6 +2,15 @@
 
 #include <stdio.h>
 
+bool SystemBus::QueryIo(cpuaddr_t addr)
+{
+	addr &= mem_mask;
+	Page& p = memory.pages[addr >> memory.page_shift];
+	if((p.io_mask & addr) == p.io_eq)
+		return io_devices.is_io_device_address(io_devices.context, addr);
+	return false;
+}
+
 uint32_t SystemBus::ReadByte(cpuaddr_t addr, uint8_t *data)
 {
 	addr &= mem_mask;
