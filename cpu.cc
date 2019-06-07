@@ -115,7 +115,7 @@ void EmulatedCpu::Emulate(EventQueue *events)
 				exec->interrupt(exec->interrupt_context, type);
 				continue;
 			}
-			if(breakpoints.find(state->GetCanonicalAddress()) != breakpoints.end()) {
+			if(has_breakpoints && breakpoints.find(state->GetCanonicalAddress()) != breakpoints.end()) {
 				breakpoints.find(state->GetCanonicalAddress())->second(this);
 			}
 			exec->emu(exec->emu_context);

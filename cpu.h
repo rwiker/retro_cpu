@@ -264,13 +264,16 @@ public:
 
 	bool AddBreakpoint(cpuaddr_t addr, std::function<void(EmulatedCpu*)> fn)
 	{
+		has_breakpoints = true;
 		return breakpoints.emplace(std::make_pair(addr, std::move(fn))).second;
 	}
 	void RemoveBreakpoint(cpuaddr_t addr)
 	{
 		breakpoints.erase(addr);
+		has_breakpoints = !breakpoints.empty();
 	}
 
+	bool has_breakpoints = false;
 	std::unordered_map<cpuaddr_t, std::function<void(EmulatedCpu*)>> breakpoints;
 };
 

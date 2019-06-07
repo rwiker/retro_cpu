@@ -440,7 +440,7 @@ struct AddrDirectBase : public Addr16bitZeroOp<AddrDirectBase<offset_reg, T, emu
 			return 0x80000000 | direct |
 				((cpu->cpu_state.regs.reglist[offset_reg].u8[0] + addr) & 0xFF);
 		} else if constexpr(emulation) {
-			return 0x80000000 | direct + addr;
+			return 0x80000000 | (direct + addr);
 		}
 		if constexpr(offset_reg != REG_MAX) {
 			cpuaddr_t sum = (uint32_t)cpu->cpu_state.regs.reglist[offset_reg].u16 + addr;

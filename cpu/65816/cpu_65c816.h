@@ -4,6 +4,9 @@
 #include "cpu.h"
 #include "jit.h"
 
+// Execute for |cycles| and return number of milliseconds taken.
+uint64_t WDC65C816PerfTest(uint64_t cycles);
+
 class WDC65C816 : public EmulatedCpu, public JittableCpu, public Disassembler
 {
 public:
@@ -196,7 +199,7 @@ public:
 
 	void FastBlockMove(uint32_t src_bank, uint32_t dest_bank, uint16_t increment)
 	{
-		uint32_t nbytes = 1U + cpu_state.regs.a.u16;
+		//uint32_t nbytes = 1U + cpu_state.regs.a.u16;
 		src_bank <<= 16;
 		dest_bank <<= 16;
 		while(cpu_state.regs.a.u16 != 0xFFFF) {
@@ -297,7 +300,7 @@ public:
 
 	uint64_t num_emulated_instructions = 0;
 
-	uint32_t internal_cycle_timing;
+	uint32_t internal_cycle_timing = 1;
 };
 
 

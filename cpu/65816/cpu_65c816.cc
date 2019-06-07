@@ -248,10 +248,10 @@ bool WDC65816Assembler::Assemble(const char*& p, std::string& error, std::vector
 					return false;
 				}
 
-				bytes.push_back(candidates.front()->opcode);
+				bytes.push_back(best->opcode);
 				uint32_t v = 0;
-				TryMatch(p, candidates.front()->format, &v);
-				for(uint8_t i = 1; i < candidates.front()->bytes; i++) {
+				TryMatch(p, best->format, &v);
+				for(uint8_t i = 1; i < best->bytes; i++) {
 					bytes.push_back(v & 0xFF);
 					v >>= 8;
 				}
@@ -291,7 +291,6 @@ WDC65C816::WDC65C816(SystemBus *sys) : EmulatedCpu(sys), sys(sys)
 	exec_info.interrupt = &Interrupt;
 	exec_info.interrupt_context = this;
 
-	internal_cycle_timing = 1;
 	OnUpdateMode();
 }
 
@@ -411,16 +410,11 @@ void WDC65C816::DoInterrupt(InterruptType type)
 		sys->io_devices.irq_taken(sys->io_devices.context, (type == IRQ) ? 1 : 2);
 }
 
-//FILE *f = fopen("f:/log.txt", "wt");
 void WDC65C816::EmulateInstruction(void *context)
 {
 	WDC65C816 *self = (WDC65C816*)context;
 	uint8_t instruction;
 	self->ReadPBR(self->cpu_state.ip, instruction);
-	//fprintf(f,"A:%02X X:%02X Y:%02X %04X:%02X %s\n",
-	//	self->cpu_state.regs.a.u8[0], self->cpu_state.regs.x.u8[0], self->cpu_state.regs.y.u8[0],
-	//	self->cpu_state.ip, instruction, mnemonics[self->cpu_state.mode][instruction]);
-	//fflush(f);
 	self->current_instruction_set[instruction](self);
 	self->num_emulated_instructions++;
 }
