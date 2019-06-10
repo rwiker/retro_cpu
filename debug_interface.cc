@@ -8,6 +8,8 @@ DebugInterface::DebugInterface(EmulatedCpu *cpu, EventQueue *events, SystemBus *
 	breakpoints_pause = cross_thread;
 }
 
+DebugInterface::~DebugInterface() {}
+
 void DebugInterface::PausedFunc()
 {
 	std::unique_lock<std::mutex> l(pause_lock);
