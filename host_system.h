@@ -13,6 +13,7 @@
 #else
 #define DEBUGBREAK() assert(false)
 #define PRETTY_FUNCTION __PRETTY_FUNCTION__
+#include <strings.h>
 #define _stricmp strcasecmp
 
 

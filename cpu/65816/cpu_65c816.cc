@@ -1,5 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS // Shut MSVC up about sprintf
 
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers" // Shut GCC up
+
 #include "cpu_65c816.h"
 
 #include "cpu_65c816_instructions.inl"
@@ -114,7 +116,7 @@ bool SkipNumber(const char*& p, uint32_t& number)
 {
 	bool hex = false;
 	bool ok = false;
-	if(*p == '$' || p[0] == '0' && p[1] == 'x') {
+	if(*p == '$' || (p[0] == '0' && p[1] == 'x')) {
 		hex = true;
 		p += (p[0] == '0') ? 2 : 1;
 	}
@@ -383,7 +385,7 @@ void WDC65C816::DoInterrupt(InterruptType type)
 			status = (status & 0xCF) | 0x20;
 	}
 	Push(status);
-	uint16_t vector;
+	uint16_t vector = 0;
 	switch(type) {
 	case BRK:
 		vector = (mode_emulation ? 0xFFFE : 0xFFE6);

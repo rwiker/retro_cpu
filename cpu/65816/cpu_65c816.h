@@ -43,6 +43,11 @@ public:
 	void WAI();
 	void STP();
 
+	uint32_t program_address() const { return cpu_state.GetCanonicalAddress(); }
+	uint16_t a() const { return cpu_state.regs.a.u16; }
+	uint16_t x() const { return cpu_state.regs.x.u16; }
+	uint16_t y() const { return cpu_state.regs.y.u16; }
+
 	void InternalOp(uint32_t n)
 	{
 		cpu_state.cycle += internal_cycle_timing * n;
@@ -282,6 +287,9 @@ public:
 		};
 		Registers regs;
 		uint32_t data_segment_base;
+
+		bool is_overflow() const { return (other_flags & 0x40) != 0; }
+		bool is_decimal() const { return (other_flags & 0x8) != 0; }
 	};
 	SystemBus *sys;
 	CpuStateImpl cpu_state;

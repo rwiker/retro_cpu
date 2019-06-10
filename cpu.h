@@ -66,6 +66,7 @@ struct CpuState
 		pending_interrupts.fetch_and(~(1U << source), std::memory_order_acq_rel);
 	}
 
+	bool interrupts_enabled() const { return interrupts != 0; }
 	bool is_zero() const { return zero == 0; }
 	bool is_negative() const { return negative & 1; }
 	bool is_carry() const { return carry & 2; }
@@ -143,7 +144,87 @@ struct SystemBus
 	uint32_t WriteByteNoIo(cpuaddr_t addr, uint8_t v);
 	bool QueryIo(cpuaddr_t addr);
 	void Init(uint32_t size_shift, uint32_t addr_bus_bits, Page *pages);
+
+	uint8_t ReadByte(cpuaddr_t addr)
+	{
+		uint8_t v;
+		ReadByte(addr, &v);
+		return v;
+	}
+	uint16_t PeekU16LE(cpuaddr_t addr)
+	{
+		uint16_t lo = ReadByte(addr);
+		uint16_t hi = ReadByte(addr + 1);
+		return lo | (hi << 8);
+	}
+	uint32_t PeekU32LE(cpuaddr_t addr)
+	{
+		uint32_t b0 = ReadByte(addr);
+		uint32_t b1 = ReadByte(addr + 1);
+		uint32_t b2 = ReadByte(addr + 2);
+		uint32_t b3 = ReadByte(addr + 3);
+		return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
+	}
+	void PokeU16LE(cpuaddr_t addr, uint16_t value)
+	{
+		WriteByte(addr, value & 0xFF);
+		WriteByte(addr + 1, value >> 8);
+	}
+	void PokeU32LE(cpuaddr_t addr, uint32_t value)
+	{
+		WriteByte(addr, value & 0xFF);
+		WriteByte(addr + 1, value >> 8);
+		WriteByte(addr + 2, value >> 16);
+		WriteByte(addr + 3, value >> 24);
+		}
 };
+
+// This is a shortcut for when a bus that maps to a single linear address space
+// is desired.
+template<uint32_t AddressBusBits>
+class SimpleSystemBus : public SystemBus
+{
+public:
+	static constexpr size_t kMemSize = 1U << AddressBusBits;
+	SimpleSystemBus()
+	{
+		page.ptr = mem;
+		page.flags = 0;
+		page.io_mask = 0;
+		page.io_eq = 1;
+		page.cycles_per_access = 1;
+		Init(AddressBusBits, AddressBusBits, &page);
+
+		io_devices.context = this;
+		io_devices.read = &IoRead;
+		io_devices.write = &IoWrite;
+	}
+
+	void SetIo(std::function<uint8_t(uint32_t addr)> read,
+		std::function<void(uint32_t addr, uint8_t val)> write, uint32_t mask, uint32_t eq)
+	{
+		read_fn = std::move(read);
+		write_fn = std::move(write);
+		page.io_mask = mask;
+		page.io_eq = eq;
+	}
+
+private:
+	static void IoRead(void *context, cpuaddr_t addr, uint8_t *data, uint32_t size)
+	{
+		*data = reinterpret_cast<SimpleSystemBus*>(context)->read_fn(addr);
+	}
+	static void IoWrite(void *context, cpuaddr_t addr, const uint8_t *data, uint32_t size)
+	{
+		reinterpret_cast<SimpleSystemBus*>(context)->write_fn(addr, *data);
+	}
+
+	std::function<uint8_t(uint32_t addr)> read_fn;
+	std::function<void(uint32_t addr, uint8_t val)> write_fn;
+	Page page;
+	uint8_t mem[kMemSize];
+};
+
 
 struct CpuTrace
 {

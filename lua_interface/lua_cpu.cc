@@ -2,12 +2,8 @@
 
 #include "lua.hpp"
 
-LuaCpu::LuaCpu(EmulatedCpu *cpu, EventQueue *events, SystemBus *bus, bool cross_thread)
-	: bus(bus), events(events), cpu(cpu)
+LuaCpu::LuaCpu(DebugInterface *debug) : debug(debug)
 {
-	if(!cross_thread)
-		pause = 1;
-	breakpoints_pause = cross_thread;
 }
 
 LuaCpu::~LuaCpu()
@@ -51,86 +47,58 @@ void LuaCpu::Push(lua_State *L)
 
 void LuaCpu::SetBreakpointImpl(ptrdiff_t addr, std::function<void(EmulatedCpu*)> fn)
 {
-	events->Schedule(0, std::bind(&EmulatedCpu::AddBreakpoint, cpu, (cpuaddr_t)addr, std::move(fn)));
+	debug->SetBreakpoint((cpuaddr_t)addr, std::move(fn));
 }
 void LuaCpu::ClearBreakpointImpl(ptrdiff_t addr)
 {
-	events->Schedule(0, std::bind(&EmulatedCpu::RemoveBreakpoint, cpu, (cpuaddr_t)addr));
+	debug->ClearBreakpoint((cpuaddr_t)addr);
 }
 
 bool LuaCpu::PeekImpl(ptrdiff_t addr, uint32_t nbytes, bool access_io, uint8_t& v)
 {
 	bool ok = false;
 	PauseImpl();
-	if(access_io || !bus->QueryIo(addr)) {
-		bus->ReadByte(addr, &v);
+	if(access_io || !debug->GetBus()->QueryIo((cpuaddr_t)addr)) {
+		debug->GetBus()->ReadByte((cpuaddr_t)addr, &v);
 		ok = true;
 	}
 	ResumeImpl();
 	return ok;
 }
 
-bool LuaCpu::PokeImpl(ptrdiff_t addr, uint32_t nbytes, bool access_io, ptrdiff_t value)
+bool LuaCpu::PokeImpl(ptrdiff_t addr, uint32_t nbytes, bool access_io, uint8_t value)
 {
 	bool ok = false;
 	PauseImpl();
-	if(access_io || !bus->QueryIo(addr)) {
-		bus->WriteByte(addr, value);
+	if(access_io || !debug->GetBus()->QueryIo((cpuaddr_t)addr)) {
+		debug->GetBus()->WriteByte((cpuaddr_t)addr, value);
 		ok = true;
 	}
 	ResumeImpl();
 	return ok;
-}
-
-void LuaCpu::PausedFunc()
-{
-	std::unique_lock<std::mutex> l(pause_lock);
-	pause_response = true;
-	pause_wait_var.notify_all();
-	while(pause) {
-		pause_var.wait(l);
-	}
-	pause_response = false;
-	pause_wait_var.notify_all();
 }
 
 void LuaCpu::PauseImpl(bool schedule_event)
 {
-	if(pause++)
-		return;
-	std::unique_lock<std::mutex> l(pause_lock);
-	if(schedule_event)
-		events->Schedule(0, std::bind(&LuaCpu::PausedFunc, this));
-	while(!pause_response) {
-		pause_wait_var.wait(l);
-	}
+	debug->Pause(schedule_event);
 }
 
 void LuaCpu::ResumeImpl()
 {
-	if(--pause)
-		return;
-	std::unique_lock<std::mutex> l(pause_lock);
-	pause_var.notify_all();
-	while(pause_response) {
-		pause_wait_var.wait(l);
-	}
+	debug->Resume();
 }
 
 void LuaCpu::OnBreakpoint(LuaState *L, int refid)
 {
-	++pause;
 	if(refid > 0)
 		L->CallRefFunction(refid);
 	else
-		printf("Breakpoint hit at %X\n", cpu->GetCpuState()->GetCanonicalAddress());
-	if(breakpoints_pause)
-		PausedFunc();
+		printf("Breakpoint hit at %X\n", debug->GetCpu()->GetCpuState()->GetCanonicalAddress());
 }
 
 void LuaCpu::PushState(lua_State *L)
 {
-	auto state = cpu->GetCpuState();
+	auto state = debug->GetCpu()->GetCpuState();
 	uint32_t addr = state->GetCanonicalAddress();
 	lua_newtable(L);
 	lua_pushinteger(L, addr);
@@ -140,7 +108,7 @@ void LuaCpu::PushState(lua_State *L)
 	lua_pushinteger(L, state->mode);
 	lua_setfield(L, -2, "mode");
 
-	auto disas = cpu->GetDisassembler();
+	auto disas = debug->GetCpu()->GetDisassembler();
 	if(disas) {
 		Disassembler::Config config;
 		config.max_instruction_count = 1;
@@ -150,7 +118,7 @@ void LuaCpu::PushState(lua_State *L)
 	}
 
 	std::vector<EmulatedCpu::DebugReg> regs;
-	if(cpu->GetDebugRegState(regs)) {
+	if(debug->GetCpu()->GetDebugRegState(regs)) {
 		lua_newtable(L);
 		for(auto& r : regs) {
 			uint64_t mask = (1U << (r.size * 8)) - 1;
@@ -257,7 +225,7 @@ int LuaCpu::GetState(lua_State *L)
 	if(!lua_isuserdata(L, 1))
 		return luaL_error(L, "LuaCpu: must pass userdata pointer as arg #1");
 	auto self = *(LuaCpu**)lua_touserdata(L, 1);
-	if(!self->pause)
+	if(!self->debug->paused())
 		return luaL_error(L, "LuaCpu: cannot get state unless paused");
 	self->PushState(L);
 	return 1;
@@ -268,13 +236,11 @@ int LuaCpu::SingleStep(lua_State *L)
 	if(!lua_isuserdata(L, 1))
 		return luaL_error(L, "LuaCpu: must pass userdata pointer as arg #1");
 	auto self = *(LuaCpu**)lua_touserdata(L, 1);
-	if(!self->pause)
+	if(!self->debug->paused())
 		return luaL_error(L, "LuaCpu: cannot singlestep unless paused");
-	if(self->pause != 1)
+	if(self->debug->recursively_paused())
 		return luaL_error(L, "LuaCpu: recursively paused");
-	self->events->ScheduleNoLock(self->cpu->GetCpuState()->cycle + 1, std::bind(&LuaCpu::PausedFunc, self));
-	self->ResumeImpl();
-	self->PauseImpl(false);
+	self->debug->SingleStep();
 	self->PushState(L);
 	return 1;
 }
@@ -284,21 +250,21 @@ int LuaCpu::Disassemble(lua_State *L)
 	if(!lua_isuserdata(L, 1))
 		return luaL_error(L, "LuaCpu: must pass userdata pointer as arg #1");
 	auto self = *(LuaCpu**)lua_touserdata(L, 1);
-	auto disas = self->cpu->GetDisassembler();
+	auto disas = self->debug->GetCpu()->GetDisassembler();
 	if(!disas)
 		return luaL_error(L, "LuaCpu: cpu doesn't implement disassembler");
 
 	cpuaddr_t addr;
 	if(lua_isnumber(L, 2)) {
-		addr = lua_tointeger(L, 2);
-	} else if(!self->pause) {
+		addr = (cpuaddr_t)lua_tointeger(L, 2);
+	} else if(!self->debug->paused()) {
 		return luaL_error(L, "LuaCpu: cannot disassembe from current while paused");
 	} else {
-		addr = self->cpu->GetCpuState()->GetCanonicalAddress();
+		addr = self->debug->GetCpu()->GetCpuState()->GetCanonicalAddress();
 	}
 	Disassembler::Config config;
 	if(lua_isnumber(L, 3))
-		config.max_instruction_count = lua_tointeger(L, 3);
+		config.max_instruction_count = (uint32_t)lua_tointeger(L, 3);
 
 	auto list = disas->Disassemble(config, addr);
 	lua_newtable(L);
@@ -314,7 +280,7 @@ int LuaCpu::Assemble(lua_State *L)
 	if(!lua_isuserdata(L, 1))
 		return luaL_error(L, "LuaCpu: must pass userdata pointer as arg #1");
 	auto self = *(LuaCpu**)lua_touserdata(L, 1);
-	auto as = self->cpu->GetAssembler();
+	auto as = self->debug->GetCpu()->GetAssembler();
 	if(!as)
 		return luaL_error(L, "LuaCpu: cpu doesn't implement assembler");
 
@@ -342,13 +308,13 @@ int LuaCpu::SetRegister(lua_State *L)
 	if(!lua_isuserdata(L, 1))
 		return luaL_error(L, "LuaCpu: must pass userdata pointer as arg #1");
 	auto self = *(LuaCpu**)lua_touserdata(L, 1);
-	if(!self->pause)
+	if(!self->debug->paused())
 		return luaL_error(L, "LuaCpu: cannot modify registers unless paused");
 	const char *reg = luaL_checkstring(L, 2);
 	auto v = luaL_checkinteger(L, 3);
 
-	auto state = self->cpu->GetCpuState();
-	lua_pushboolean(L, self->cpu->SetRegister(reg, v));
+	auto state = self->debug->GetCpu()->GetCpuState();
+	lua_pushboolean(L, self->debug->GetCpu()->SetRegister(reg, v));
 
 	return 1;
 }

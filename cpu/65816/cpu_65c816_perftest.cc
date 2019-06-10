@@ -1,5 +1,7 @@
 #include "cpu_65c816.h"
 
+#include <string.h>
+
 const char *source = R"(
 .65816
 CLC
