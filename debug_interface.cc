@@ -22,6 +22,12 @@ void DebugInterface::PausedFunc()
 	pause_wait_var.notify_all();
 }
 
+void DebugInterface::SingleStepFunc()
+{
+	pause++;
+	PausedFunc();
+}
+
 void DebugInterface::Pause(bool schedule_event)
 {
 	std::unique_lock<std::mutex> l(pause_lock);
@@ -48,14 +54,21 @@ void DebugInterface::Resume()
 void DebugInterface::SingleStep(uint32_t n_clocks)
 {
 	events->ScheduleNoLock(cpu->GetCpuState()->cycle + n_clocks,
-		std::bind(&DebugInterface::PausedFunc, this));
+		std::bind(&DebugInterface::SingleStepFunc, this));
+
+	// The CPU is paused here
 	Resume();
-	Pause(false);
+
+	// Wait for the run thread to pause
+	std::unique_lock<std::mutex> l(pause_lock);
+	while(!pause_response) {
+		pause_wait_var.wait(l);
+	}
 }
 
 void DebugInterface::SetBreakpoint(cpuaddr_t addr, std::function<void(EmulatedCpu*)> fn, bool pause_on_hit)
 {
-	events->Schedule(0, std::bind(&EmulatedCpu::AddBreakpoint, cpu, (cpuaddr_t)addr,
+	std::function<void(EmulatedCpu*)> bp_fn = 
 		[this, pause_on_hit, moved_fn{std::move(fn)}](EmulatedCpu *cpu) {
 			{
 				std::unique_lock<std::mutex> l(pause_lock);
@@ -73,9 +86,17 @@ void DebugInterface::SetBreakpoint(cpuaddr_t addr, std::function<void(EmulatedCp
 				std::unique_lock<std::mutex> l(pause_lock);
 				--pause;
 			}
-		}));
+		};
+	if(pause)
+		cpu->AddBreakpoint(addr, std::move(bp_fn));
+	else
+		events->Schedule(0, std::bind(&EmulatedCpu::AddBreakpoint, cpu, addr, std::move(bp_fn)));
 }
+
 void DebugInterface::ClearBreakpoint(cpuaddr_t addr)
 {
-	events->Schedule(0, std::bind(&EmulatedCpu::RemoveBreakpoint, cpu, (cpuaddr_t)addr));
+	if(pause)
+		cpu->RemoveBreakpoint(addr);
+	else
+		events->Schedule(0, std::bind(&EmulatedCpu::RemoveBreakpoint, cpu, (cpuaddr_t)addr));
 }

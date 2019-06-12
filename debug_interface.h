@@ -28,6 +28,7 @@ public:
 
 protected:
 	void PausedFunc();
+	void SingleStepFunc();
 
 	SystemBus *bus;
 	EventQueue *events;
