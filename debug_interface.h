@@ -36,6 +36,7 @@ protected:
 
 	int pause = 0;
 	bool pause_response = false;
+	bool step_pending = false;
 	bool breakpoints_pause;
 	std::condition_variable pause_var;
 	std::condition_variable pause_wait_var;

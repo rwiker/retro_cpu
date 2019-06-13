@@ -24,7 +24,11 @@ void DebugInterface::PausedFunc()
 
 void DebugInterface::SingleStepFunc()
 {
-	pause++;
+	{
+		std::unique_lock<std::mutex> l(pause_lock);
+		step_pending = false;
+		pause++;
+	}
 	PausedFunc();
 }
 
@@ -53,10 +57,12 @@ void DebugInterface::Resume()
 
 void DebugInterface::SingleStep(uint32_t n_clocks)
 {
-	events->ScheduleNoLock(cpu->GetCpuState()->cycle + n_clocks,
-		std::bind(&DebugInterface::SingleStepFunc, this));
-
 	// The CPU is paused here
+	if(!step_pending) {
+		step_pending = true;
+		events->ScheduleNoLock(cpu->GetCpuState()->cycle + n_clocks,
+			std::bind(&DebugInterface::SingleStepFunc, this));
+	}
 	Resume();
 
 	// Wait for the run thread to pause
@@ -70,9 +76,11 @@ void DebugInterface::SetBreakpoint(cpuaddr_t addr, std::function<void(EmulatedCp
 {
 	std::function<void(EmulatedCpu*)> bp_fn = 
 		[this, pause_on_hit, moved_fn{std::move(fn)}](EmulatedCpu *cpu) {
+			bool was_stepping;
 			{
 				std::unique_lock<std::mutex> l(pause_lock);
-				if(breakpoints_pause)
+				was_stepping = step_pending;
+				if(breakpoints_pause && !was_stepping)
 					++pause;
 			}
 			if(moved_fn)
@@ -80,7 +88,7 @@ void DebugInterface::SetBreakpoint(cpuaddr_t addr, std::function<void(EmulatedCp
 			// Note: if the client called Resume() prematurely, this will result in a no-op because
 			// Resume will set pause to 0, see pause_response == false and return, and PausedFunc
 			// will see pause == 0 and return
-			if(pause_on_hit && breakpoints_pause) {
+			if(pause_on_hit && breakpoints_pause && !was_stepping) {
 				PausedFunc();
 			} else {
 				std::unique_lock<std::mutex> l(pause_lock);
