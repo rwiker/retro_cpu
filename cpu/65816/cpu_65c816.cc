@@ -506,7 +506,7 @@ bool WDC65C816::DisassembleOneInstruction(uint32_t& canonical_address, CpuInstru
 
 	uint32_t length  = canonical_address - start;
 
-	insn.canonical_address = canonical_address;
+	insn.canonical_address = start;
 	insn.length = length;
 
 	insn.asm_string.resize(256);
