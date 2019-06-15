@@ -9,6 +9,10 @@
 
 namespace nes {
 
+// From https://forums.nesdev.com/viewtopic.php?t=492
+static constexpr double kNesNtscFps = 1789772.7272727 / 29780.5;
+static constexpr double kNesPalFps = 1662607.0 / 33247.5;
+
 struct NesInputData
 {
 	struct Device
@@ -73,6 +77,7 @@ public:
 
 	WDC65C816 cpu;
 	SystemBus main_bus;
+	EventQueue event_queue;
 
 	PPU_2C02 ppu;
 
@@ -83,6 +88,7 @@ public:
 	uint8_t sysram[2048];
 
 	std::unique_ptr<Mapper> mapper;
+	std::shared_ptr<Rom> current_rom;
 
 	// Various memory blocks
 	std::unique_ptr<NativeMemory> chr_ram;

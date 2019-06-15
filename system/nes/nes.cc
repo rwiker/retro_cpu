@@ -20,7 +20,7 @@ void Nes::Step()
 void Nes::Run()
 {
 	cpu.cpu_state.cycle_stop = current_frame_start_cycle + master_clocks_per_frame;
-	cpu.EmulateWithCycleProcessing(*this);
+	cpu.EmulateWithCycleProcessing(*this, &event_queue);
 	current_frame_start_cycle += master_clocks_per_frame;
 }
 void Nes::RunForOneFrame(Framebuffer *fb)
@@ -99,6 +99,8 @@ bool Nes::LoadRom(std::shared_ptr<Rom> rom)
 	mapper->PowerOn();
 	cpu.PowerOn();
 	ppu.PowerOn();
+
+	current_rom = std::move(rom);
 
 	return true;
 }
