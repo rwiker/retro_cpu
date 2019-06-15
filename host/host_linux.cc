@@ -1,3 +1,5 @@
+#ifdef __linux__
+
 #include <memory>
 
 #include <fcntl.h>
@@ -94,3 +96,5 @@ size_t NativeMemory::GetNativeSize()
 {
 	return 0x1000;
 }
+
+#endif

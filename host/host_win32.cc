@@ -1,4 +1,6 @@
+#if _WIN32
 #include "host_system.h"
+
 #include <Windows.h>
 
 #include <filesystem>
@@ -145,3 +147,4 @@ std::shared_ptr<NativeFile> NativeFile::Open(const std::string& string)
 	return std::make_unique<File>(file);
 }
 
+#endif
