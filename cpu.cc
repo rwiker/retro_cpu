@@ -13,13 +13,17 @@ bool SystemBus::QueryIo(cpuaddr_t addr)
 
 uint32_t SystemBus::ReadByte(cpuaddr_t addr, uint8_t *data)
 {
+	if(!open_bus_is_data)
+		open_bus = addr & 0xFF;
+
 	addr &= mem_mask;
 	Page& p = memory.pages[addr >> memory.page_shift];
 	if((p.io_mask & addr) == p.io_eq) {
-		io_devices.read(io_devices.context, addr, data, 1);
-	} else {
-		*data = p.ptr[addr & memory.page_mask];
+		io_devices.read(io_devices.context, addr, &open_bus, 1);
+	} else if(p.ptr) {
+		open_bus = p.ptr[addr & memory.page_mask];
 	}
+	*data = open_bus;
 	return p.cycles_per_access;
 }
 uint32_t SystemBus::ReadByteNoIo(cpuaddr_t addr, uint8_t *data)
@@ -36,9 +40,10 @@ uint32_t SystemBus::WriteByte(uint32_t addr, uint8_t v)
 	Page& p = memory.pages[addr >> memory.page_shift];
 	if((p.io_mask & addr) == p.io_eq) {
 		io_devices.write(io_devices.context, addr, &v, 1);
-	} else if(!(p.flags & Page::kReadOnly)) {
+	} else if(!(p.flags & Page::kReadOnly) && p.ptr) {
 		p.ptr[addr & memory.page_mask] = v;
 	}
+	open_bus = open_bus_is_data ? v : addr & 0xFF;
 	return p.cycles_per_access;
 }
 uint32_t SystemBus::WriteByteNoIo(uint32_t addr, uint8_t v)

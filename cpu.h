@@ -138,6 +138,8 @@ struct SystemBus
 	MemoryMap memory;
 	EmulatedCpu *cpu;
 	uint32_t mem_mask;
+	bool open_bus_is_data = true;
+	uint8_t open_bus = 0;
 
 	void Map(cpuaddr_t addr, uint8_t *ptr, uint32_t len, bool readonly = false);
 
