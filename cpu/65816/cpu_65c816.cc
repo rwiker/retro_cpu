@@ -46,6 +46,14 @@ constexpr DisassembleFn disassemble_fns[6][256] = {
 #undef OP
 };
 
+struct SaveData
+{
+	uint64_t cycle;
+	uint64_t num_instructions;
+	uint16_t a, x, y, d, sp, pc;
+	uint8_t dbr, pbr, flags, emulation, native6502;
+};
+
 class WDC65816Assembler : public Assembler
 {
 public:
@@ -415,8 +423,14 @@ void WDC65C816::DoInterrupt(InterruptType type)
 void WDC65C816::EmulateInstruction(void *context)
 {
 	WDC65C816 *self = (WDC65C816*)context;
+	cpuaddr_t addr = self->cpu_state.GetCanonicalAddress();
+	if(!self->tracing.addrs.empty()) {
+		self->tracing.addrs[self->tracing.write++] = addr;
+		if(self->tracing.write == self->tracing.addrs.size())
+			self->tracing.write = 0;
+	}
 	uint8_t instruction;
-	self->ReadPBR(self->cpu_state.ip, instruction);
+	self->ReadU8(addr, instruction);
 	self->current_instruction_set[instruction](self);
 	self->num_emulated_instructions++;
 }
@@ -486,6 +500,61 @@ void WDC65C816::OnUpdateMode()
 	current_instruction_set = exec_ops[cpu_state.mode];
 }
 
+bool WDC65C816::SaveState(std::vector<uint8_t> *out_data)
+{
+	size_t size = out_data->size();
+	out_data->resize(size + sizeof(SaveData));
+	SaveData *s = reinterpret_cast<SaveData*>((*out_data)[size]);
+	s->a = cpu_state.regs.a.u16;
+	s->x = cpu_state.regs.x.u16;
+	s->y = cpu_state.regs.y.u16;
+	s->d = cpu_state.regs.d.u16;
+	s->sp = cpu_state.regs.sp.u16;
+	s->pc = cpu_state.ip & 0xFFFF;
+	s->pbr = cpu_state.code_segment_base >> 16;
+	s->dbr = cpu_state.data_segment_base >> 16;
+	s->flags = GetStatusRegister();
+	s->emulation = mode_emulation ? 1 : 0;
+	s->native6502 = mode_native_6502 ? 1 : 0;
+	s->num_instructions = num_emulated_instructions;
+	s->cycle = cpu_state.cycle;
+
+	return true;
+}
+
+bool WDC65C816::LoadState(const uint8_t **in_data, const uint8_t *end)
+{
+	size_t n = end - *in_data;
+	if(n < sizeof(SaveData))
+		return false;
+	SaveData s;
+	memcpy(&s, *in_data, sizeof(s));
+	*in_data += sizeof(SaveData);
+
+	// First load all mode-related info so no register contents get overwritten
+	mode_emulation = s.emulation != 0;
+	mode_native_6502 = s.native6502 != 0;
+	SetStatusRegister(s.flags);
+	OnUpdateMode();
+
+	cpu_state.regs.a.u16 = s.a;
+	cpu_state.regs.x.u16 = s.x;
+	cpu_state.regs.y.u16 = s.y;
+	cpu_state.regs.d.u16 = s.d;
+	cpu_state.regs.sp.u16 = s.sp;
+	cpu_state.ip = s.pc;
+	cpu_state.code_segment_base = (uint32_t)s.pbr << 16;
+	cpu_state.data_segment_base = (uint32_t)s.dbr << 16;
+	cpu_state.cycle = s.cycle;
+	num_emulated_instructions = s.num_instructions;
+
+	// Any trace history is now garbage
+	tracing.write = 0;
+	if(!tracing.addrs.empty())
+		memset(tracing.addrs.data(), 0, tracing.addrs.size() * sizeof(tracing.addrs[0]));
+	return true;
+}
+
 const JitOperation* WDC65C816::GetJit(JitCore *core, cpuaddr_t addr)
 {
 	uint8_t opcode;
@@ -493,7 +562,7 @@ const JitOperation* WDC65C816::GetJit(JitCore *core, cpuaddr_t addr)
 	return jit_ops[cpu_state.mode][opcode];
 }
 
-bool WDC65C816::DisassembleOneInstruction(uint32_t& canonical_address, CpuInstruction& insn)
+bool WDC65C816::DisassembleOneInstruction(const Config& config, uint32_t& canonical_address, CpuInstruction& insn)
 {
 	uint8_t opcode;
 	PeekU8(canonical_address, opcode);
@@ -509,13 +578,30 @@ bool WDC65C816::DisassembleOneInstruction(uint32_t& canonical_address, CpuInstru
 	insn.canonical_address = start;
 	insn.length = length;
 
-	insn.asm_string.resize(256);
-	int n = sprintf(&insn.asm_string[0], "%06X: %02X %02X %02X %02X %s",
-		start, opcode, PeekU8(start + 1), PeekU8(start + 2), PeekU8(start + 3),
-		fixed_str ? fixed_str : formatted_str);
-	for(uint32_t i = length * 3; i < 12; i++)
-		insn.asm_string[i + 8] = ' ';
-	insn.asm_string.resize(n);
+	uint8_t b1 = PeekU8(start + 1);
+	uint8_t b2 = PeekU8(start + 2);
+	uint8_t b3 = PeekU8(start + 3);
+
+	const char *str = fixed_str ? fixed_str : formatted_str;
+	auto len = strlen(str);
+
+	insn.asm_string.resize(len + 64);
+	int n = 0;
+	if(config.include_addr) {
+		n += sprintf(&insn.asm_string[n], "%06X: ", start);
+	}
+	if(config.include_bytes) {
+		int first_byte_index = n;
+		n += sprintf(&insn.asm_string[n], "%02X %02X %02X %02X ", opcode, b1, b2, b3);
+		for(uint32_t i = length * 3; i < 12; i++)
+			insn.asm_string[i + first_byte_index] = ' ';
+	}
+	memcpy(&insn.asm_string[n], str, len + 1);
+	insn.asm_string.resize(n + len);
+	insn.bytes[0] = opcode;
+	insn.bytes[1] = b1;
+	insn.bytes[2] = b2;
+	insn.bytes[3] = b3;
 
 	return true;
 }

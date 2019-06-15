@@ -169,7 +169,7 @@ std::vector<CpuInstruction> Disassembler::Disassemble(const Config& config, uint
 	instructions.reserve(config.max_instruction_count);
 	for(uint32_t i = 0; i < config.max_instruction_count; i++) {
 		instructions.emplace_back();
-		if(!DisassembleOneInstruction(canonical_address, instructions.back())) {
+		if(!DisassembleOneInstruction(config, canonical_address, instructions.back())) {
 			instructions.pop_back();
 			break;
 		}

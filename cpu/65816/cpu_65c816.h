@@ -23,16 +23,17 @@ public:
 
 	const JitOperation* GetJit(JitCore *core, cpuaddr_t addr) override;
 
+	bool SaveState(std::vector<uint8_t> *out_data) override;
+	bool LoadState(const uint8_t **in_data, const uint8_t *end) override;
 	Disassembler* GetDisassembler() override { return this; }
 	Assembler* GetAssembler() override;
-	bool DisassembleOneInstruction(uint32_t& canonical_address, CpuInstruction& insn) override;
+	bool DisassembleOneInstruction(const Config& config, uint32_t& canonical_address, CpuInstruction& insn) override;
 	bool GetDebugRegState(std::vector<DebugReg>& regs) override;
+	CpuTrace* GetDebugTraceState() override { return &tracing; }
 	bool SetRegister(const char *reg, uint64_t value) override;
 
 	static void EmulateInstruction(void *context);
 	static void Interrupt(void *context, uint32_t param);
-
-	uint32_t GetMemoryCycleCount(cpuaddr_t addr);
 
 	void SetNZ(uint8_t v);
 	void SetNZ(uint16_t v);
@@ -309,6 +310,8 @@ public:
 	uint64_t num_emulated_instructions = 0;
 
 	uint32_t internal_cycle_timing = 1;
+
+	CpuTrace tracing;
 };
 
 

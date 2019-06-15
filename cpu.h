@@ -76,6 +76,7 @@ struct CpuInstruction
 {
 	uint32_t canonical_address;
 	uint32_t length;
+	uint8_t bytes[8];
 	std::string asm_string;
 };
 
@@ -85,6 +86,8 @@ public:
 	struct Config
 	{
 		uint32_t max_instruction_count = 32;
+		bool include_addr = true;
+		bool include_bytes = true;
 	};
 	virtual ~Disassembler() {}
 
@@ -92,7 +95,7 @@ public:
 	std::vector<CpuInstruction> Disassemble(const Config& config, const CpuState *state);
 
 protected:
-	virtual bool DisassembleOneInstruction(uint32_t& canonical_address, CpuInstruction& insn) = 0;
+	virtual bool DisassembleOneInstruction(const Config& config, uint32_t& canonical_address, CpuInstruction& insn) = 0;
 };
 
 class Assembler
@@ -176,7 +179,7 @@ struct SystemBus
 		WriteByte(addr + 1, value >> 8);
 		WriteByte(addr + 2, value >> 16);
 		WriteByte(addr + 3, value >> 24);
-		}
+	}
 };
 
 // This is a shortcut for when a bus that maps to a single linear address space
@@ -228,8 +231,10 @@ private:
 
 struct CpuTrace
 {
-	cpuaddr_t *addrs;
-	uint32_t max, write;
+	// A simple circular buffer. Values accessed backwards from |write|
+	// record the instruction pointer of executed instructions
+	std::vector<cpuaddr_t> addrs;
+	uint32_t write = 0;
 };
 
 class EventQueue
@@ -277,6 +282,8 @@ public:
 	virtual uint32_t GetAddressBusBits() = 0;
 	virtual uint32_t GetPCBits() = 0;
 
+	virtual bool SaveState(std::vector<uint8_t> *out_data) { return false; }
+	virtual bool LoadState(const uint8_t **in_data, const uint8_t *end) { return false; }
 	virtual Disassembler* GetDisassembler() { return nullptr; }
 	virtual Assembler* GetAssembler() { return nullptr; }
 	struct DebugReg
