@@ -7,6 +7,7 @@
 #include "cpu_65c816_instructions.inl"
 
 #include <map>
+#include <string.h>
 
 namespace {
 
