@@ -147,7 +147,6 @@ struct Addr16bitZeroOp
 
 
 
-
 template<typename AType, typename XYType>
 struct AddrA
 {
@@ -246,7 +245,10 @@ struct AddrImm
 
 	static void Disassemble(WDC65C816 *cpu, uint32_t addr, char *formatted_str, const char *mnemonic)
 	{
-		sprintf(formatted_str, "%s #$%02X", mnemonic, cpu->PeekU8(addr + 1));
+		if constexpr(sizeof(EffectiveSize) == 1)
+			sprintf(formatted_str, "%s #$%02X", mnemonic, cpu->PeekU8(addr + 1));
+		else
+			sprintf(formatted_str, "%s #$%04X", mnemonic, cpu->PeekU16(addr + 1));
 	}
 };
 
