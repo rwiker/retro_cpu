@@ -50,7 +50,7 @@ void DebugInterface::Resume()
 	if(--pause)
 		return;
 	pause_var.notify_all();
-	while(pause_response) {
+	while(pause_response && !pause) {
 		pause_wait_var.wait(l);
 	}
 }
