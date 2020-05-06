@@ -5,3 +5,7 @@ x64
 *.lib
 *.exe
 *.exp
+CMakeFiles
+Makefile
+cmake_install.cmake
+*.a
