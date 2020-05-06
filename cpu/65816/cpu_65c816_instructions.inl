@@ -1,3 +1,4 @@
+// -*- mode: c++; c-basic-offset: 8; -*-
 enum {
 	// This must match the order of CpuStateImpl::Registers in the header
 	RA, RX, RY, RD, RSP, REG_MAX
@@ -2330,7 +2331,21 @@ struct OpAdc
 	{
 		EffectiveSize reg;
 		cpu->cpu_state.regs.a.get(reg);
-		panic();
+
+		uint32_t result = (uint32_t)reg + (uint32_t)data + ((cpu->cpu_state.carry >> 1) & 1);
+
+		uint32_t carries = ((result ^ reg ^ data) >> 1) & 0x88888888;
+		uint32_t adj_ind = carries | ((result & ((result | (result << 1 )) << 1)) & 0x88888888);
+		uint32_t adj = (adj_ind | (adj_ind >> 1)) >> 1;
+		result += adj;
+
+		uint32_t cn = result >> (8 * sizeof(data) - 1);
+
+		cpu->cpu_state.zero = (EffectiveSize)result;
+		cpu->cpu_state.carry = cn;
+		cpu->cpu_state.negative = cn;
+		reg = result;
+		cpu->cpu_state.regs.a.set(reg);
 	}
 	template<typename EffectiveSize>
 	static void AddBin(WDC65C816 *cpu, EffectiveSize data)
@@ -2384,7 +2399,23 @@ struct OpSbc
 	{
 		EffectiveSize reg;
 		cpu->cpu_state.regs.a.get(reg);
-		panic();
+
+		uint32_t result = (uint32_t)reg +
+			(uint32_t)(data ^ ((EffectiveSize) -1)) +
+			((cpu->cpu_state.carry >> 1) & 1);
+
+		uint32_t carries = ((result ^ reg ^ data) >> 1) & 0x88888888;
+		uint32_t adj_ind = carries | ((result & ((result | (result << 1 )) << 1)) & 0x88888888);
+		uint32_t adj = (adj_ind | (adj_ind >> 1)) >> 1;
+		result += adj;
+
+		uint32_t cn = result >> (8 * sizeof(data) - 1);
+
+		cpu->cpu_state.zero = (EffectiveSize)result;
+		cpu->cpu_state.carry = cn;
+		cpu->cpu_state.negative = cn;
+		reg = result;
+		cpu->cpu_state.regs.a.set(reg);
 	}
 	template<typename EffectiveSize>
 	static void SubBin(WDC65C816 *cpu, EffectiveSize data)
